@@ -19,6 +19,7 @@ from app.modules.prescriptions.router import router as prescriptions_router
 from app.modules.search.router import router as search_router
 from app.modules.analytics.router import router as analytics_router
 from app.modules.audit.router import router as audit_router
+import app.models  # noqa: F401 — load all models for SQLAlchemy registry
 
 settings = get_settings()
 
