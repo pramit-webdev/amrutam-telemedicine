@@ -84,3 +84,15 @@ if settings.enable_tracing:
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "amrutam-telemedicine"}
+
+
+@app.get("/db-check")
+async def db_check():
+    from app.core.database import engine
+    from sqlalchemy import text
+    try:
+        async with engine.connect() as conn:
+            r = await conn.execute(text("SELECT 1"))
+            return {"db": "ok", "result": r.scalar()}
+    except Exception as e:
+        return {"db": "error", "error": str(e), "type": type(e).__name__}
