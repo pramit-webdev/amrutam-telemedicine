@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: amrutam
+          POSTGRES_PASSWORD: amrutam
+          POSTGRES_DB: amrutam_test
+        options: >-
+          --health-cmd pg_isready -U amrutam
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run migrations
+        run: uv run alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+asyncpg://amrutam:amrutam@localhost:5432/amrutam_test
+
+      - name: Run tests
+        run: uv run pytest tests/ -v --cov=app --cov-report=term-missing
+        env:
+          DATABASE_URL: postgresql+asyncpg://amrutam:amrutam@localhost:5432/amrutam_test
+          JWT_SECRET_KEY: ci-test-secret
+          ENVIRONMENT: testing
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Run lint
+        run: uv run ruff check app/ tests/
