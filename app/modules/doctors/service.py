@@ -7,8 +7,10 @@ from sqlalchemy.orm import selectinload
 
 from app.common.exceptions import NotFoundException
 from app.common.pagination import PaginatedResponse, PaginationParams
+from app.modules.audit.service import audit_service
 from app.modules.doctors.models import Doctor
 from app.modules.doctors.repository import doctor_repository, slot_repository
+from app.modules.users.models import User
 
 
 class DoctorService:
@@ -26,7 +28,6 @@ class DoctorService:
         else:
             doctor = await doctor_repository.create(session, user_id=user_id, **data)
 
-        from app.modules.audit.service import audit_service
         await audit_service.log_action(
             session, user_id=user_id,
             action="created" if is_new else "updated",
@@ -77,8 +78,6 @@ class DoctorService:
             raise NotFoundException("Doctor profile not found")
 
         slots_db = await slot_repository.create_batch(session, doctor.id, slots_data)
-
-        from app.modules.audit.service import audit_service
         serialized_slots = [
             {"start_time": s["start_time"].isoformat(), "end_time": s["end_time"].isoformat()}
             for s in slots_data
@@ -132,7 +131,6 @@ class DoctorService:
             "bio": doctor.bio,
             "is_available": doctor.is_available,
         }
-        from app.modules.users.models import User
         user_result = await session.execute(
             select(User).options(selectinload(User.profile)).where(User.id == doctor.user_id)
         )

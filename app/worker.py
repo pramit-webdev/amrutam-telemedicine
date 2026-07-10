@@ -1,3 +1,4 @@
+import os
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -63,7 +64,7 @@ async def aggregate_analytics(ctx: dict) -> dict:
 
 class WorkerSettings:
     functions = [expire_pending_consultations, send_reminder, aggregate_analytics]
-    redis_settings = {"host": "localhost", "port": 6379}
+    redis_settings = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
     poll_delay = 10
     max_tasks = 10
     keep_result_seconds = 3600

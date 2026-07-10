@@ -19,11 +19,12 @@ except ImportError:
 def setup_tracing(app):
     if not settings.enable_tracing or not _has_tracing:
         return
+    if not settings.otel_exporter_otlp_endpoint:
+        return
 
     provider = TracerProvider()
-    if settings.otel_exporter_otlp_endpoint:
-        exporter = OTLPSpanExporter(endpoint=settings.otel_exporter_otlp_endpoint)
-        provider.add_span_processor(BatchSpanProcessor(exporter))
+    exporter = OTLPSpanExporter(endpoint=settings.otel_exporter_otlp_endpoint)
+    provider.add_span_processor(BatchSpanProcessor(exporter))
 
     trace.set_tracer_provider(provider)
 

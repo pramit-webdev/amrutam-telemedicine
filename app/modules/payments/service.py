@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import ConflictException, NotFoundException
 from app.common.retry import PAYMENT_RETRY
+from app.modules.audit.service import audit_service
 from app.modules.consultations.models import Consultation, ConsultationStatus
 from app.modules.payments.models import Payment, PaymentStatus
 
@@ -74,7 +75,6 @@ class PaymentService:
 
         consultation.status = ConsultationStatus.CONFIRMED
 
-        from app.modules.audit.service import audit_service
         await audit_service.log_action(
             session, user_id=patient_id, action="completed", entity_type="payment",
             entity_id=str(payment.id),
@@ -107,7 +107,6 @@ class PaymentService:
         if consultation:
             consultation.status = ConsultationStatus.CANCELLED
 
-        from app.modules.audit.service import audit_service
         await audit_service.log_action(
             session, user_id=payment.patient_id, action="refunded", entity_type="payment",
             entity_id=str(payment.id),

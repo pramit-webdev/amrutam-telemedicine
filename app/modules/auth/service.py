@@ -16,6 +16,7 @@ from app.core.security import (
     verify_password,
     verify_totp,
 )
+from app.modules.audit.service import audit_service
 from app.modules.users.models import Profile
 from app.modules.users.repository import user_repository
 
@@ -40,7 +41,6 @@ class AuthService:
         profile = Profile(user_id=user.id, first_name=first_name, last_name=last_name)
         session.add(profile)
 
-        from app.modules.audit.service import audit_service
         await audit_service.log_action(
             session, user_id=user.id, action="created", entity_type="user",
             entity_id=str(user.id), new_values={"email": email, "role": role},
@@ -107,7 +107,7 @@ class AuthService:
             "user": {"id": str(user.id), "email": user.email, "role": user.role},
         }
 
-    async def refresh_token(self, refresh_token: str) -> dict:
+    async def refresh_token(self, session: AsyncSession, refresh_token: str) -> dict:
         payload = decode_token(refresh_token)
         if not payload or payload.get("type") != "refresh":
             raise UnauthorizedException("Invalid refresh token")
@@ -116,8 +116,12 @@ class AuthService:
         if not user_id:
             raise UnauthorizedException("Invalid refresh token")
 
-        access_token = create_access_token(UUID(user_id), payload.get("role", "patient"))
-        new_refresh = create_refresh_token(UUID(user_id))
+        user = await user_repository.get_by_id(session, UUID(user_id))
+        if not user or not user.is_active:
+            raise UnauthorizedException("User not found or inactive")
+
+        access_token = create_access_token(user.id, user.role)
+        new_refresh = create_refresh_token(user.id)
         return {"access_token": access_token, "refresh_token": new_refresh, "token_type": "bearer"}
 
 

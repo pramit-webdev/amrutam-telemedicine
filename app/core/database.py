@@ -4,8 +4,8 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
-pool_size = 5 if settings.environment == "production" else 20
-max_overflow = 2 if settings.environment == "production" else 10
+pool_size = 20 if settings.environment == "production" else 5
+max_overflow = 10 if settings.environment == "production" else 2
 
 engine = create_async_engine(
     settings.database_url,

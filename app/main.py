@@ -48,13 +48,10 @@ structlog.configure(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if settings.environment == "production":
-        try:
-            from app.core.base import Base
-            from app.core.database import engine
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-        except Exception:
-            pass
+        from app.core.base import Base
+        from app.core.database import engine
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     yield
     await close_redis()
 
@@ -72,7 +69,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

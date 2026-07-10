@@ -9,6 +9,7 @@ from app.core.cache import get_redis
 from app.core.database import get_session
 from app.core.security import decode_token
 from app.modules.users.models import UserRole
+from app.modules.users.repository import user_repository
 
 security_scheme = HTTPBearer(auto_error=False)
 
@@ -27,7 +28,6 @@ async def get_current_user(
     if not user_id or token_type != "access":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    from app.modules.users.repository import user_repository
     user = await user_repository.get_by_id(session, UUID(user_id))
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")

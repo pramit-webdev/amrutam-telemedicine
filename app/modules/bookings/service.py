@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import ConflictException, NotFoundException
+from app.modules.audit.service import audit_service
 from app.modules.consultations.models import Consultation, ConsultationStatus
 from app.modules.doctors.models import AvailabilitySlot
 from app.modules.doctors.repository import doctor_repository
@@ -46,7 +47,6 @@ class BookingService:
 
         await session.flush()
 
-        from app.modules.audit.service import audit_service
         await audit_service.log_action(
             session, user_id=patient_id, action="created", entity_type="consultation",
             entity_id=str(consultation.id),
@@ -91,7 +91,6 @@ class BookingService:
             consultation.slot.is_booked = False
             consultation.slot.version += 1
 
-        from app.modules.audit.service import audit_service
         await audit_service.log_action(
             session, user_id=user_id, action="cancelled", entity_type="consultation",
             entity_id=str(consultation.id),

@@ -57,5 +57,9 @@ async def verify_mfa(
 
 @router.post("/refresh")
 @rate_limiter.limit("10/minute")
-async def refresh(request: Request, body: RefreshRequest):
-    return await auth_service.refresh_token(body.refresh_token)
+async def refresh(
+    request: Request,
+    body: RefreshRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    return await auth_service.refresh_token(session, body.refresh_token)

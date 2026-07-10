@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     enable_tracing: bool = False
     otel_exporter_otlp_endpoint: str | None = None
 
+    cors_origins: list[str] = ["*"]
+
     rate_limit_requests_per_minute: int = 100
     rate_limit_auth_requests_per_minute: int = 10
 

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import ConflictException, NotFoundException
 from app.common.pagination import PaginatedResponse, PaginationParams
+from app.modules.audit.service import audit_service
 from app.modules.consultations.models import Consultation, ConsultationStatus
 from app.modules.doctors.repository import doctor_repository
 
@@ -83,7 +84,6 @@ class ConsultationService:
         if notes:
             consultation.notes = notes
 
-        from app.modules.audit.service import audit_service
         await audit_service.log_action(
             session, user_id=doctor_user_id, action="status_changed", entity_type="consultation",
             entity_id=str(consultation.id),
@@ -122,7 +122,6 @@ class ConsultationService:
         if notes:
             consultation.notes = notes
 
-        from app.modules.audit.service import audit_service
         await audit_service.log_action(
             session, user_id=doctor_user_id, action="status_changed", entity_type="consultation",
             entity_id=str(consultation.id),
