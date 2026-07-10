@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
 from datetime import date
 from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 
 class UserResponse(BaseModel):

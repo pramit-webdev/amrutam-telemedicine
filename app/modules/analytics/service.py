@@ -1,18 +1,18 @@
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.consultations.models import Consultation, ConsultationStatus
-from app.modules.payments.models import Payment, PaymentStatus
 from app.modules.doctors.models import Doctor
+from app.modules.payments.models import Payment, PaymentStatus
 
 
 class AnalyticsService:
     async def get_consultation_stats(
         self, session: AsyncSession, days: int = 30,
     ) -> dict:
-        since = datetime.now(timezone.utc) - timedelta(days=days)
+        since = datetime.now(UTC) - timedelta(days=days)
 
         total_result = await session.execute(
             select(func.count()).select_from(Consultation).where(
@@ -37,7 +37,7 @@ class AnalyticsService:
     async def get_revenue_stats(
         self, session: AsyncSession, days: int = 30,
     ) -> dict:
-        since = datetime.now(timezone.utc) - timedelta(days=days)
+        since = datetime.now(UTC) - timedelta(days=days)
 
         result = await session.execute(
             select(
@@ -64,7 +64,7 @@ class AnalyticsService:
     async def get_top_doctors(
         self, session: AsyncSession, days: int = 30, limit: int = 10,
     ) -> list[dict]:
-        since = datetime.now(timezone.utc) - timedelta(days=days)
+        since = datetime.now(UTC) - timedelta(days=days)
 
         result = await session.execute(
             select(

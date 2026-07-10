@@ -2,13 +2,13 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import get_redis
 from app.core.database import get_session
 from app.core.security import decode_token
-from app.core.cache import get_redis
 from app.modules.users.models import UserRole
-from redis.asyncio import Redis
 
 security_scheme = HTTPBearer(auto_error=False)
 

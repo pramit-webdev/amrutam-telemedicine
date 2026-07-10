@@ -3,9 +3,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.payments.models import Payment, PaymentStatus
+from app.common.exceptions import ConflictException, NotFoundException
 from app.modules.consultations.models import Consultation, ConsultationStatus
-from app.common.exceptions import NotFoundException, ConflictException
+from app.modules.payments.models import Payment, PaymentStatus
 
 
 class PaymentRepository:

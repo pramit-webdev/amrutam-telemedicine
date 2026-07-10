@@ -1,14 +1,13 @@
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
-
-from sqlalchemy import select, func, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.doctors.models import Doctor, AvailabilitySlot
-from app.modules.users.models import User
 from app.common.pagination import PaginationParams
+from app.modules.doctors.models import AvailabilitySlot, Doctor
+from app.modules.users.models import User
 
 
 class DoctorRepository:

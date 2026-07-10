@@ -1,25 +1,26 @@
 import logging
-import structlog
 from contextlib import asynccontextmanager
+
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import get_settings
-from app.core.cache import close_redis
+import app.models  # noqa: F401 — load all models for SQLAlchemy registry
 from app.common.middleware import RequestLoggingMiddleware
-from app.monitoring.metrics import setup_metrics
-from app.monitoring.tracing import setup_tracing
+from app.core.cache import close_redis
+from app.core.config import get_settings
+from app.modules.analytics.router import router as analytics_router
+from app.modules.audit.router import router as audit_router
 from app.modules.auth.router import router as auth_router
-from app.modules.users.router import router as users_router
-from app.modules.doctors.router import router as doctors_router
 from app.modules.bookings.router import router as bookings_router
 from app.modules.consultations.router import router as consultations_router
+from app.modules.doctors.router import router as doctors_router
 from app.modules.payments.router import router as payments_router
 from app.modules.prescriptions.router import router as prescriptions_router
 from app.modules.search.router import router as search_router
-from app.modules.analytics.router import router as analytics_router
-from app.modules.audit.router import router as audit_router
-import app.models  # noqa: F401 — load all models for SQLAlchemy registry
+from app.modules.users.router import router as users_router
+from app.monitoring.metrics import setup_metrics
+from app.monitoring.tracing import setup_tracing
 
 settings = get_settings()
 
@@ -44,8 +45,8 @@ structlog.configure(
 async def lifespan(app: FastAPI):
     if settings.environment == "production":
         try:
-            from app.core.database import engine
             from app.core.base import Base
+            from app.core.database import engine
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
         except Exception:
@@ -96,8 +97,9 @@ async def health():
 
 @app.get("/db-check")
 async def db_check():
-    from app.core.database import engine
     from sqlalchemy import text
+
+    from app.core.database import engine
     try:
         async with engine.connect() as conn:
             r = await conn.execute(text("SELECT 1"))

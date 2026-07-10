@@ -2,9 +2,9 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.users.repository import user_repository
-from app.modules.users.models import Profile
 from app.common.exceptions import NotFoundException
+from app.modules.users.models import Profile
+from app.modules.users.repository import user_repository
 
 
 class UserService:

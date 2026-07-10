@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.dependencies import get_current_user, require_role
-from app.modules.consultations.schemas import StartConsultationRequest, CompleteConsultationRequest
+from app.modules.consultations.schemas import CompleteConsultationRequest, StartConsultationRequest
 from app.modules.consultations.service import consultation_service
 
 router = APIRouter(prefix="/consultations", tags=["consultations"])

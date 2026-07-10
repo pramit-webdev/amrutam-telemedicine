@@ -3,10 +3,10 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.prescriptions.models import Prescription
+from app.common.exceptions import ConflictException, NotFoundException
 from app.modules.consultations.models import Consultation
 from app.modules.doctors.repository import doctor_repository
-from app.common.exceptions import NotFoundException, ConflictException
+from app.modules.prescriptions.models import Prescription
 
 
 class PrescriptionService:

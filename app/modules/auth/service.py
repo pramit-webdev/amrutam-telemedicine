@@ -1,27 +1,30 @@
-from uuid import UUID
 import base64
 import io
+from uuid import UUID
 
 import qrcode
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.users.repository import user_repository
-from app.modules.users.models import Profile
+from app.common.exceptions import ConflictException, UnauthorizedException
 from app.core.security import (
-    hash_password,
-    verify_password,
     create_access_token,
     create_refresh_token,
     decode_token,
     generate_totp_secret,
     get_totp_uri,
+    hash_password,
+    verify_password,
     verify_totp,
 )
-from app.common.exceptions import ConflictException, UnauthorizedException
+from app.modules.users.models import Profile
+from app.modules.users.repository import user_repository
 
 
 class AuthService:
-    async def register(self, session: AsyncSession, email: str, password: str, role: str, first_name: str | None, last_name: str | None) -> dict:
+    async def register(
+        self, session: AsyncSession, email: str, password: str, role: str,
+        first_name: str | None, last_name: str | None,
+    ) -> dict:
         existing = await user_repository.get_by_email(session, email)
         if existing:
             raise ConflictException("Email already registered")

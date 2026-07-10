@@ -1,14 +1,14 @@
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.doctors.repository import doctor_repository, slot_repository
-from app.modules.doctors.models import Doctor
 from app.common.exceptions import NotFoundException
-from app.common.pagination import PaginationParams, PaginatedResponse
+from app.common.pagination import PaginatedResponse, PaginationParams
+from app.modules.doctors.models import Doctor
+from app.modules.doctors.repository import doctor_repository, slot_repository
 
 
 class DoctorService:
@@ -77,10 +77,7 @@ class DoctorService:
     async def get_slots(
         self, session: AsyncSession, doctor_id: UUID, date_str: str | None = None
     ) -> list[dict]:
-        if date_str:
-            date = datetime.fromisoformat(date_str).date()
-        else:
-            date = datetime.utcnow().date()
+        date = datetime.fromisoformat(date_str).date() if date_str else datetime.utcnow().date()
 
         slots = await slot_repository.get_available_by_doctor_and_date(
             session, doctor_id, date

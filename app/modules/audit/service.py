@@ -1,10 +1,10 @@
 from uuid import UUID
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.pagination import PaginatedResponse, PaginationParams
 from app.modules.audit.models import AuditLog
-from app.common.pagination import PaginationParams, PaginatedResponse
 
 
 class AuditService:

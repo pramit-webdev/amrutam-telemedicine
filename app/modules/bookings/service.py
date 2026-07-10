@@ -3,11 +3,10 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.exceptions import ConflictException, NotFoundException
+from app.modules.consultations.models import Consultation, ConsultationStatus
 from app.modules.doctors.models import AvailabilitySlot
 from app.modules.doctors.repository import doctor_repository
-from app.modules.consultations.models import Consultation
-from app.modules.consultations.models import ConsultationStatus
-from app.common.exceptions import ConflictException, NotFoundException
 
 
 class BookingService:

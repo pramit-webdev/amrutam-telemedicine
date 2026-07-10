@@ -1,12 +1,12 @@
+from datetime import UTC, datetime
 from uuid import UUID
-from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.exceptions import ConflictException, NotFoundException
 from app.modules.consultations.models import Consultation, ConsultationStatus
 from app.modules.doctors.repository import doctor_repository
-from app.common.exceptions import NotFoundException, ConflictException
 
 
 class ConsultationService:
@@ -64,7 +64,7 @@ class ConsultationService:
             )
 
         consultation.status = ConsultationStatus.IN_PROGRESS
-        consultation.started_at = datetime.now(timezone.utc)
+        consultation.started_at = datetime.now(UTC)
         if notes:
             consultation.notes = notes
 
@@ -92,7 +92,7 @@ class ConsultationService:
             )
 
         consultation.status = ConsultationStatus.COMPLETED
-        consultation.ended_at = datetime.now(timezone.utc)
+        consultation.ended_at = datetime.now(UTC)
         if notes:
             consultation.notes = notes
 
