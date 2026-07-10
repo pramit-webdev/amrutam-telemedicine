@@ -17,7 +17,7 @@ jobs:
           POSTGRES_PASSWORD: amrutam
           POSTGRES_DB: amrutam_test
         options: >-
-          --health-cmd "pg_isready -U amrutam"
+          --health-cmd pg_isready
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
@@ -44,6 +44,7 @@ jobs:
         run: uv run alembic upgrade head
         env:
           DATABASE_URL: postgresql+asyncpg://amrutam:amrutam@localhost:5432/amrutam_test
+          PYTHONPATH: ${{ github.workspace }}
 
       - name: Run tests
         run: uv run pytest tests/ -v --cov=app --cov-report=term-missing
@@ -51,6 +52,7 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://amrutam:amrutam@localhost:5432/amrutam_test
           JWT_SECRET_KEY: ci-test-secret
           ENVIRONMENT: testing
+          PYTHONPATH: ${{ github.workspace }}
 
   lint:
     runs-on: ubuntu-latest
