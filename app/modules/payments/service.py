@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import ConflictException, NotFoundException
+from app.common.retry import PAYMENT_RETRY
 from app.modules.consultations.models import Consultation, ConsultationStatus
 from app.modules.payments.models import Payment, PaymentStatus
 
@@ -36,6 +37,7 @@ payment_repository = PaymentRepository()
 
 
 class PaymentService:
+    @PAYMENT_RETRY
     async def process_payment(
         self, session: AsyncSession, patient_id: UUID,
         consultation_id: UUID, amount: float, currency: str,

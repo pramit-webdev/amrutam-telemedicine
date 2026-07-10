@@ -56,6 +56,24 @@ services:
       - redis_data:/data
     restart: unless-stopped
 
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    entrypoint: ["uv", "run", "arq", "app.worker.WorkerSettings"]
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://amrutam:amrutam@db:5432/amrutam
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=dev-secret-change-in-production
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
