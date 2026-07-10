@@ -6,13 +6,14 @@
 │──────────────│       │──────────────────│
 │ id (PK, UUID)│1────1│ id (PK, UUID)    │
 │ email (UQ)   │       │ user_id (FK, UQ) │
-│ password_hash│       │ first_name       │
-│ role (enum)  │       │ last_name        │
-│ is_active    │       │ phone            │
-│ is_verified  │       │ date_of_birth    │
-│ created_at   │       │ gender           │
-│ updated_at   │       │ address          │
-│ version      │       │ created_at       │
+│ phone        │       │ first_name       │
+│ password_hash│       │ last_name        │
+│ role (enum)  │       │ date_of_birth    │
+│ is_active    │       │ gender           │
+│ created_at   │       │ address          │
+│ updated_at   │       │ avatar_url       │
+│ mfa_enabled  │       │ created_at       │
+│ mfa_secret   │       └──────────────────┘
 └──────┬───────┘       └──────────────────┘
        │
        │ 1
@@ -28,11 +29,10 @@
 │ years_of_exp     │       │ dosage           │
 │ consultation_fee │       │ frequency        │
 │ average_rating   │       │ duration         │
-│ total_ratings    │       │ notes            │
+│ bio              │       │ notes            │
 │ is_available     │       │ created_at       │
 │ created_at       │       └──────────────────┘
 │ updated_at       │
-│ version          │
 └──────┬───────────┘
        │
        │ 1
@@ -47,27 +47,29 @@
 │ end_time         │       │ slot_id (FK)     │
 │ is_booked        │       │ status (enum)    │
 │ version          │       │ symptoms         │
-│ created_at       │       │ diagnosis        │
-│ updated_at       │       │ notes            │
-└──────────────────┘       │ idempotency_key   │
-                           │ scheduled_start   │
-┌──────────────────┐       │ started_at        │
-│    Payment       │       │ completed_at      │
-│──────────────────│       │ created_at        │
-│ id (PK, UUID)   │       │ updated_at        │
-│ consultation_id  │       │ version           │
-│ user_id (FK)     │       └──────────────────┘
-│ amount           │
-│ currency         │
-│ status (enum)    │
-│ payment_method   │       ┌──────────────────┐
-│ transaction_id   │       │   AuditLog       │
-│ idempotency_key  │       │──────────────────│
-│ created_at       │       │ id (PK, UUID)    │
-│ updated_at       │       │ user_id (FK)     │
-└──────────────────┘       │ action           │
-                           │ resource_type    │
-                           │ resource_id      │
+│ created_at       │       │ notes            │
+│ updated_at       │       │ idempotency_key  │
+└──────────────────┘       │ started_at       │
+                            │ ended_at         │
+┌──────────────────┐       │ created_at       │
+│    Payment       │       │ updated_at       │
+│──────────────────│       └──────────────────┘
+│ id (PK, UUID)   │
+│ consultation_id  │
+│ patient_id (FK)  │       ┌──────────────────┐
+│ amount           │       │   AuditLog       │
+│ currency         │       │──────────────────│
+│ status (enum)    │       │ id (PK, UUID)    │
+│ payment_method   │       │ user_id (FK)     │
+│ idempotency_key  │       │ action           │
+│ created_at       │       │ entity_type      │
+│ updated_at       │       │ entity_id        │
+└──────────────────┘       │ old_values (JSON)│
+                            │ new_values (JSON)│
+                            │ ip_address       │
+                            │ user_agent       │
+                            │ created_at       │
+                            └──────────────────┘
                            │ details (JSONB)  │
                            │ ip_address       │
                            │ user_agent       │

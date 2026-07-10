@@ -42,6 +42,7 @@ class PaymentService:
         self, session: AsyncSession, patient_id: UUID,
         consultation_id: UUID, amount: float, currency: str,
         idempotency_key: str, payment_method: str | None = None,
+        ip_address: str | None = None, user_agent: str | None = None,
     ) -> dict:
         existing = await payment_repository.get_by_idempotency_key(session, idempotency_key)
         if existing:
@@ -73,10 +74,22 @@ class PaymentService:
 
         consultation.status = ConsultationStatus.CONFIRMED
 
+        from app.modules.audit.service import audit_service
+        await audit_service.log_action(
+            session, user_id=patient_id, action="completed", entity_type="payment",
+            entity_id=str(payment.id),
+            new_values={
+                "consultation_id": str(consultation_id), "amount": amount,
+                "currency": currency, "status": PaymentStatus.COMPLETED,
+            },
+            ip_address=ip_address, user_agent=user_agent,
+        )
+
         return self._to_dict(payment)
 
     async def refund_payment(
         self, session: AsyncSession, payment_id: UUID, reason: str | None = None,
+        ip_address: str | None = None, user_agent: str | None = None,
     ) -> dict:
         payment = await payment_repository.get_by_id(session, payment_id)
         if not payment:
@@ -84,6 +97,7 @@ class PaymentService:
         if payment.status != PaymentStatus.COMPLETED:
             raise ConflictException(f"Cannot refund payment in status: {payment.status}")
 
+        old_status = payment.status
         payment.status = PaymentStatus.REFUNDED
 
         result = await session.execute(
@@ -92,6 +106,15 @@ class PaymentService:
         consultation = result.scalar_one_or_none()
         if consultation:
             consultation.status = ConsultationStatus.CANCELLED
+
+        from app.modules.audit.service import audit_service
+        await audit_service.log_action(
+            session, user_id=payment.patient_id, action="refunded", entity_type="payment",
+            entity_id=str(payment.id),
+            old_values={"status": old_status},
+            new_values={"status": PaymentStatus.REFUNDED, "reason": reason},
+            ip_address=ip_address, user_agent=user_agent,
+        )
 
         return self._to_dict(payment)
 

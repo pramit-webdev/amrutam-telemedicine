@@ -14,6 +14,7 @@ class BookingService:
         self, session: AsyncSession, patient_id: UUID,
         doctor_id: UUID, slot_id: UUID,
         idempotency_key: str, symptoms: str | None = None,
+        ip_address: str | None = None, user_agent: str | None = None,
     ) -> dict:
         doctor = await doctor_repository.get_by_id(session, doctor_id)
         if not doctor:
@@ -45,6 +46,14 @@ class BookingService:
 
         await session.flush()
 
+        from app.modules.audit.service import audit_service
+        await audit_service.log_action(
+            session, user_id=patient_id, action="created", entity_type="consultation",
+            entity_id=str(consultation.id),
+            new_values={"doctor_id": str(doctor_id), "slot_id": str(slot_id), "status": consultation.status},
+            ip_address=ip_address, user_agent=user_agent,
+        )
+
         return {
             "consultation_id": consultation.id,
             "status": consultation.status,
@@ -56,6 +65,7 @@ class BookingService:
     async def cancel_booking(
         self, session: AsyncSession, consultation_id: UUID,
         user_id: UUID, role: str, reason: str | None = None,
+        ip_address: str | None = None, user_agent: str | None = None,
     ) -> dict:
         result = await session.execute(
             select(Consultation).where(Consultation.id == consultation_id)
@@ -75,10 +85,20 @@ class BookingService:
         if consultation.status in (ConsultationStatus.COMPLETED, ConsultationStatus.CANCELLED):
             raise ConflictException(f"Cannot cancel a {consultation.status} consultation")
 
+        old_status = consultation.status
         consultation.status = ConsultationStatus.CANCELLED
         if consultation.slot:
             consultation.slot.is_booked = False
             consultation.slot.version += 1
+
+        from app.modules.audit.service import audit_service
+        await audit_service.log_action(
+            session, user_id=user_id, action="cancelled", entity_type="consultation",
+            entity_id=str(consultation.id),
+            old_values={"status": old_status},
+            new_values={"status": ConsultationStatus.CANCELLED, "reason": reason},
+            ip_address=ip_address, user_agent=user_agent,
+        )
 
         return {
             "consultation_id": consultation.id,

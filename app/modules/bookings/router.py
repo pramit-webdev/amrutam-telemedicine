@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
@@ -13,10 +13,13 @@ router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 @router.post("")
 async def book_slot(
+    request: Request,
     body: BookingRequest,
     current_user: dict = Depends(require_role("patient")),
     session: AsyncSession = Depends(get_session),
 ):
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
     return await booking_service.book_slot(
         session,
         patient_id=current_user["id"],
@@ -24,20 +27,27 @@ async def book_slot(
         slot_id=body.slot_id,
         idempotency_key=body.idempotency_key,
         symptoms=body.symptoms,
+        ip_address=ip_address,
+        user_agent=user_agent,
     )
 
 
 @router.post("/{consultation_id}/cancel")
 async def cancel_booking(
+    request: Request,
     consultation_id: str,
     body: CancelBookingRequest = CancelBookingRequest(),
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
     return await booking_service.cancel_booking(
         session,
         consultation_id=UUID(consultation_id),
         user_id=current_user["id"],
         role=current_user["role"],
         reason=body.reason,
+        ip_address=ip_address,
+        user_agent=user_agent,
     )

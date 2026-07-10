@@ -27,6 +27,7 @@ class MFAEnrollResponse(BaseModel):
 
 
 class MFAVerifyRequest(BaseModel):
+    user_id: str
     token: str = Field(min_length=6, max_length=6)
 
 

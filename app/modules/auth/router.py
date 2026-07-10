@@ -19,9 +19,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/register")
 @rate_limiter.limit("10/hour")
 async def register(request: Request, body: RegisterRequest, session: AsyncSession = Depends(get_session)):
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
     return await auth_service.register(
         session, body.email, body.password, body.role,
         body.first_name, body.last_name,
+        ip_address=ip_address, user_agent=user_agent,
     )
 
 
@@ -46,14 +49,10 @@ async def enroll_mfa(
 async def verify_mfa(
     request: Request,
     body: MFAVerifyRequest,
-    user_id: str | None = None,
     session: AsyncSession = Depends(get_session),
 ):
-    if not user_id:
-        from app.common.exceptions import UnauthorizedException
-        raise UnauthorizedException("user_id is required for MFA verification")
     import uuid
-    return await auth_service.verify_mfa(session, uuid.UUID(user_id), body.token)
+    return await auth_service.verify_mfa(session, uuid.UUID(body.user_id), body.token)
 
 
 @router.post("/refresh")

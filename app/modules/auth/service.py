@@ -24,6 +24,7 @@ class AuthService:
     async def register(
         self, session: AsyncSession, email: str, password: str, role: str,
         first_name: str | None, last_name: str | None,
+        ip_address: str | None = None, user_agent: str | None = None,
     ) -> dict:
         existing = await user_repository.get_by_email(session, email)
         if existing:
@@ -38,6 +39,13 @@ class AuthService:
 
         profile = Profile(user_id=user.id, first_name=first_name, last_name=last_name)
         session.add(profile)
+
+        from app.modules.audit.service import audit_service
+        await audit_service.log_action(
+            session, user_id=user.id, action="created", entity_type="user",
+            entity_id=str(user.id), new_values={"email": email, "role": role},
+            ip_address=ip_address, user_agent=user_agent,
+        )
 
         return {
             "id": str(user.id),
