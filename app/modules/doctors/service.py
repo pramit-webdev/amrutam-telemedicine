@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -13,14 +13,27 @@ from app.modules.doctors.repository import doctor_repository, slot_repository
 
 class DoctorService:
     async def create_or_update_profile(
-        self, session: AsyncSession, user_id: UUID, data: dict
+        self, session: AsyncSession, user_id: UUID, data: dict,
+        ip_address: str | None = None, user_agent: str | None = None,
     ) -> dict:
         doctor = await doctor_repository.get_by_user_id(session, user_id)
+        is_new = doctor is None
+        old_data = None
         if doctor:
+            old_data = {k: getattr(doctor, k) for k in data if hasattr(doctor, k)}
             for key, value in data.items():
                 setattr(doctor, key, value)
         else:
             doctor = await doctor_repository.create(session, user_id=user_id, **data)
+
+        from app.modules.audit.service import audit_service
+        await audit_service.log_action(
+            session, user_id=user_id,
+            action="created" if is_new else "updated",
+            entity_type="doctor", entity_id=str(doctor.id),
+            old_values=old_data, new_values=data,
+            ip_address=ip_address, user_agent=user_agent,
+        )
 
         return await self._to_response(session, doctor)
 
@@ -56,13 +69,27 @@ class DoctorService:
         return paginated.dict()
 
     async def add_slots(
-        self, session: AsyncSession, user_id: UUID, slots_data: list[dict]
+        self, session: AsyncSession, user_id: UUID, slots_data: list[dict],
+        ip_address: str | None = None, user_agent: str | None = None,
     ) -> list[dict]:
         doctor = await doctor_repository.get_by_user_id(session, user_id)
         if not doctor:
             raise NotFoundException("Doctor profile not found")
 
         slots_db = await slot_repository.create_batch(session, doctor.id, slots_data)
+
+        from app.modules.audit.service import audit_service
+        serialized_slots = [
+            {"start_time": s["start_time"].isoformat(), "end_time": s["end_time"].isoformat()}
+            for s in slots_data
+        ]
+        await audit_service.log_action(
+            session, user_id=user_id, action="created", entity_type="availability_slot",
+            entity_id=str(doctor.id),
+            new_values={"count": len(slots_db), "slots": serialized_slots},
+            ip_address=ip_address, user_agent=user_agent,
+        )
+
         return [
             {
                 "id": str(s.id),
@@ -77,7 +104,7 @@ class DoctorService:
     async def get_slots(
         self, session: AsyncSession, doctor_id: UUID, date_str: str | None = None
     ) -> list[dict]:
-        date = datetime.fromisoformat(date_str).date() if date_str else datetime.utcnow().date()
+        date = datetime.fromisoformat(date_str).date() if date_str else datetime.now(UTC).date()
 
         slots = await slot_repository.get_available_by_doctor_and_date(
             session, doctor_id, date

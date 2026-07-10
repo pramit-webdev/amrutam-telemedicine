@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
@@ -11,12 +11,16 @@ router = APIRouter(tags=["doctors"])
 
 @router.post("/doctors/profile")
 async def create_doctor_profile(
+    request: Request,
     body: DoctorCreate,
     current_user: dict = Depends(require_role("doctor")),
     session: AsyncSession = Depends(get_session),
 ):
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
     return await doctor_service.create_or_update_profile(
-        session, current_user["id"], body.model_dump()
+        session, current_user["id"], body.model_dump(),
+        ip_address=ip_address, user_agent=user_agent,
     )
 
 
@@ -53,12 +57,18 @@ async def get_doctor(
 
 @router.post("/doctors/slots")
 async def add_slots(
+    request: Request,
     body: SlotBatchCreate,
     current_user: dict = Depends(require_role("doctor")),
     session: AsyncSession = Depends(get_session),
 ):
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
     slots_data = [{"start_time": s.start_time, "end_time": s.end_time} for s in body.slots]
-    return await doctor_service.add_slots(session, current_user["id"], slots_data)
+    return await doctor_service.add_slots(
+        session, current_user["id"], slots_data,
+        ip_address=ip_address, user_agent=user_agent,
+    )
 
 
 @router.get("/doctors/{doctor_id}/slots")
