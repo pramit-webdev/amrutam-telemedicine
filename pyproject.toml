@@ -25,6 +25,8 @@ dependencies = [
     "structlog>=25.1,<26",
     "python-multipart>=0.0.20,<1",
     "email-validator>=2.2,<3",
+    "slowapi>=0.1.9,<1",
+    "limits>=3.14,<4",
 ]
 
 [project.optional-dependencies]

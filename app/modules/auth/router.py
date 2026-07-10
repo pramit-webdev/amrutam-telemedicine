@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.rate_limit import rate_limiter
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.modules.auth.schemas import (
@@ -16,7 +17,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register")
-async def register(body: RegisterRequest, session: AsyncSession = Depends(get_session)):
+@rate_limiter.limit("10/hour")
+async def register(request: Request, body: RegisterRequest, session: AsyncSession = Depends(get_session)):
     return await auth_service.register(
         session, body.email, body.password, body.role,
         body.first_name, body.last_name,
@@ -24,12 +26,15 @@ async def register(body: RegisterRequest, session: AsyncSession = Depends(get_se
 
 
 @router.post("/login")
-async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)):
+@rate_limiter.limit("10/minute")
+async def login(request: Request, body: LoginRequest, session: AsyncSession = Depends(get_session)):
     return await auth_service.login(session, body.email, body.password)
 
 
 @router.post("/mfa/enroll", response_model=MFAEnrollResponse)
+@rate_limiter.limit("5/minute")
 async def enroll_mfa(
+    request: Request,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -37,12 +42,13 @@ async def enroll_mfa(
 
 
 @router.post("/mfa/verify")
+@rate_limiter.limit("10/minute")
 async def verify_mfa(
+    request: Request,
     body: MFAVerifyRequest,
     user_id: str | None = None,
     session: AsyncSession = Depends(get_session),
 ):
-    # user_id comes from query param after initial login response when mfa_required is true
     if not user_id:
         from app.common.exceptions import UnauthorizedException
         raise UnauthorizedException("user_id is required for MFA verification")
@@ -51,5 +57,6 @@ async def verify_mfa(
 
 
 @router.post("/refresh")
-async def refresh(body: RefreshRequest):
+@rate_limiter.limit("10/minute")
+async def refresh(request: Request, body: RefreshRequest):
     return await auth_service.refresh_token(body.refresh_token)

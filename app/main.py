@@ -4,9 +4,13 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 import app.models  # noqa: F401 — load all models for SQLAlchemy registry
 from app.common.middleware import RequestLoggingMiddleware
+from app.common.rate_limit import rate_limiter
 from app.core.cache import close_redis
 from app.core.config import get_settings
 from app.modules.analytics.router import router as analytics_router
@@ -63,6 +67,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = rate_limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -71,6 +78,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(SlowAPIMiddleware)
 
 app.include_router(auth_router)
 app.include_router(users_router)
