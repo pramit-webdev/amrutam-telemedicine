@@ -1,6 +1,6 @@
 FROM python:3.12-slim AS builder
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+RUN pip install --no-cache-dir uv
 
 WORKDIR /app
 COPY pyproject.toml uv.lock .
@@ -13,7 +13,8 @@ RUN groupadd -r amrutam && useradd -r -g amrutam amrutam
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY app/ app/
-COPY alembic.ini alembic/ alembic/
+COPY alembic.ini .
+COPY alembic/ alembic/
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app
