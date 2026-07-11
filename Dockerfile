@@ -1,25 +1,22 @@
-FROM python:3.12-slim AS builder
-
-RUN pip install --no-cache-dir uv
-
-WORKDIR /app
-COPY pyproject.toml uv.lock .
-RUN uv sync --no-dev --frozen
-
 FROM python:3.12-slim
 
-RUN groupadd -r amrutam && useradd -r -g amrutam amrutam
+RUN groupadd -r amrutam && useradd -r -g amrutam amrutam && \
+    apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /app/.venv /app/.venv
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY app/ app/
 COPY alembic.ini .
 COPY alembic/ alembic/
 
-ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app
+
+USER amrutam
 
 EXPOSE 8000
 
-USER amrutam
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
