@@ -5,8 +5,9 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+DEFAULT_REDIS_URL = "redis://localhost:6379/0"
 storage_uri = "memory://"
-if settings.environment == "production" and settings.redis_url:
+if settings.environment == "production" and settings.redis_url and settings.redis_url != DEFAULT_REDIS_URL:
     storage_uri = settings.redis_url
 
 rate_limiter = Limiter(
