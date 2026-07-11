@@ -1,5 +1,6 @@
 import base64
 import io
+import time
 from uuid import UUID
 
 import qrcode
@@ -19,6 +20,14 @@ from app.core.security import (
 from app.modules.audit.service import audit_service
 from app.modules.users.models import Profile
 from app.modules.users.repository import user_repository
+
+# In-memory account lockout tracking.
+# Key: email, Value: [failed_attempts, lockout_until_timestamp]
+# This is acceptable for this deployment scale; counter resets on restart.
+_lockout_store: dict[str, list[int | float]] = {}
+
+MAX_FAILED_ATTEMPTS = 10
+LOCKOUT_DURATION_SECONDS = 900  # 15 minutes
 
 
 class AuthService:
@@ -55,16 +64,37 @@ class AuthService:
 
     async def login(self, session: AsyncSession, email: str, password: str) -> dict:
         user = await user_repository.get_by_email(session, email)
-        if not user or not verify_password(password, user.password_hash):
+        if not user:
             raise UnauthorizedException("Invalid email or password")
         if not user.is_active:
             raise UnauthorizedException("Account is deactivated")
+
+        now = time.time()
+        entry = _lockout_store.get(email)
+        if entry:
+            _, lock_until = entry
+            if lock_until > now:
+                remaining = int((lock_until - now) // 60)
+                raise UnauthorizedException(f"Account locked. Try again in {remaining} minute(s).")
+
+        if not verify_password(password, user.password_hash):
+            attempts, lock_until = entry if entry else (0, 0)
+            attempts += 1
+            if attempts >= MAX_FAILED_ATTEMPTS:
+                _lockout_store[email] = [0, now + LOCKOUT_DURATION_SECONDS]
+                remaining = LOCKOUT_DURATION_SECONDS // 60
+                raise UnauthorizedException(f"Account locked. Try again in {remaining} minute(s).")
+            else:
+                _lockout_store[email] = [attempts, 0]
+            raise UnauthorizedException("Invalid email or password")
+
+        _lockout_store.pop(email, None)
 
         if user.mfa_enabled:
             return {"mfa_required": True, "user_id": str(user.id)}
 
         access_token = create_access_token(user.id, user.role)
-        refresh_token = create_refresh_token(user.id)
+        refresh_token = create_refresh_token(user.id, user.token_version)
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -99,7 +129,7 @@ class AuthService:
             raise UnauthorizedException("Invalid MFA token")
 
         access_token = create_access_token(user.id, user.role)
-        refresh_token = create_refresh_token(user.id)
+        refresh_token = create_refresh_token(user.id, user.token_version)
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -107,8 +137,8 @@ class AuthService:
             "user": {"id": str(user.id), "email": user.email, "role": user.role},
         }
 
-    async def refresh_token(self, session: AsyncSession, refresh_token: str) -> dict:
-        payload = decode_token(refresh_token)
+    async def refresh_token(self, session: AsyncSession, refresh_token_str: str) -> dict:
+        payload = decode_token(refresh_token_str)
         if not payload or payload.get("type") != "refresh":
             raise UnauthorizedException("Invalid refresh token")
 
@@ -116,12 +146,19 @@ class AuthService:
         if not user_id:
             raise UnauthorizedException("Invalid refresh token")
 
+        token_version_claim = payload.get("ver", 0)
+
         user = await user_repository.get_by_id(session, UUID(user_id))
         if not user or not user.is_active:
             raise UnauthorizedException("User not found or inactive")
 
+        if user.token_version != token_version_claim:
+            raise UnauthorizedException("Refresh token has been revoked")
+
+        user.token_version += 1
+
         access_token = create_access_token(user.id, user.role)
-        new_refresh = create_refresh_token(user.id)
+        new_refresh = create_refresh_token(user.id, user.token_version)
         return {"access_token": access_token, "refresh_token": new_refresh, "token_type": "bearer"}
 
 

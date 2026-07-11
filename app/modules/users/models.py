@@ -1,7 +1,9 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Boolean, Date, ForeignKey, String, Text
+from datetime import datetime
+
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -20,6 +22,9 @@ class User(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     mfa_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     profile = relationship("Profile", back_populates="user", uselist=False, lazy="joined")
     doctor_profile = relationship("Doctor", back_populates="user", uselist=False)

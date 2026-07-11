@@ -66,3 +66,34 @@ async def test_mfa_enroll(client: AsyncClient):
     assert "secret" in data
     assert "uri" in data
     assert "qr_code" in data
+
+
+@pytest.mark.asyncio
+async def test_account_lockout_after_10_failed_attempts(client: AsyncClient):
+    await client.post("/auth/register", json={
+        "email": "lockout@test.com", "password": "password123", "role": "patient",
+    })
+    for _ in range(10):
+        resp = await client.post("/auth/login", json={
+            "email": "lockout@test.com", "password": "wrongpass",
+        })
+    assert resp.status_code == 401
+    assert "locked" in resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_rotation(client: AsyncClient):
+    await client.post("/auth/register", json={
+        "email": "rotate@test.com", "password": "password123", "role": "patient",
+    })
+    login = await client.post("/auth/login", json={
+        "email": "rotate@test.com", "password": "password123",
+    })
+    refresh_token = login.json()["refresh_token"]
+
+    resp1 = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert resp1.status_code == 200
+
+    resp2 = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert resp2.status_code == 401
+

@@ -58,7 +58,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    entrypoint: ["uv", "run", "arq", "app.worker.WorkerSettings"]
+    entrypoint: ["python", "-m", "arq", "app.worker.WorkerSettings"]
     environment:
       - DATABASE_URL=postgresql+asyncpg://amrutam:amrutam@db:5432/amrutam
       - REDIS_URL=redis://redis:6379/0

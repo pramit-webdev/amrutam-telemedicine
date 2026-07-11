@@ -75,7 +75,7 @@ open http://localhost:8000/docs
 ### Auth
 - `POST /auth/register` — Register (patient, doctor, admin)
 - `POST /auth/login` — Login, returns JWT pair
-- `POST /auth/mfa/setup` — Enroll in TOTP MFA
+- `POST /auth/mfa/enroll` — Enroll in TOTP MFA
 - `POST /auth/mfa/verify` — Verify MFA token
 - `POST /auth/refresh` — Refresh access token
 
