@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class DoctorCreate(BaseModel):
@@ -30,6 +30,16 @@ class DoctorResponse(BaseModel):
 class SlotCreate(BaseModel):
     start_time: datetime
     end_time: datetime
+
+    @model_validator(mode="after")
+    def validate_times(self):
+        if self.start_time >= self.end_time:
+            raise ValueError("start_time must be before end_time")
+        if self.start_time < datetime.now(UTC):
+            raise ValueError("start_time cannot be in the past")
+        if (self.end_time - self.start_time).total_seconds() > 7200:
+            raise ValueError("Slot duration cannot exceed 2 hours")
+        return self
 
 
 class SlotBatchCreate(BaseModel):

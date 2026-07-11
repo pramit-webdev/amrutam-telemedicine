@@ -249,8 +249,24 @@ async def test_prescription_flow(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_doctor_search(client: AsyncClient):
+    # Register a doctor first
+    await client.post("/auth/register", json={
+        "email": "search_doc@test.com", "password": "password123", "role": "doctor",
+    })
+    doc_resp = await client.post("/auth/login", json={
+        "email": "search_doc@test.com", "password": "password123",
+    })
+    doc_token = doc_resp.json()["access_token"]
+    await client.post("/doctors/profile", json={
+        "specialization": "Cardiology", "license_number": "LIC-SRCH",
+        "years_of_experience": 5, "consultation_fee": 300,
+    }, headers={"Authorization": f"Bearer {doc_token}"})
+
     resp = await client.get("/doctors/search?specialization=Cardio")
     assert resp.status_code == 200
     data = resp.json()
     assert "items" in data
     assert "total" in data
+    assert data["total"] >= 1
+    assert len(data["items"]) >= 1
+    assert "Cardio" in data["items"][0]["specialization"]

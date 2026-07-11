@@ -24,3 +24,8 @@ class UnauthorizedException(AppException):
 class ForbiddenException(AppException):
     def __init__(self, detail: str = "Forbidden"):
         super().__init__(detail=detail, status_code=status.HTTP_403_FORBIDDEN)
+
+
+class BadRequestException(AppException):
+    def __init__(self, detail: str = "Bad request"):
+        super().__init__(detail=detail, status_code=status.HTTP_400_BAD_REQUEST)

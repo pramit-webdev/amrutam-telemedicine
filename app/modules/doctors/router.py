@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,11 +50,10 @@ async def search_doctors(
 
 @router.get("/doctors/{doctor_id}")
 async def get_doctor(
-    doctor_id: str,
+    doctor_id: UUID,
     session: AsyncSession = Depends(get_session),
 ):
-    from uuid import UUID
-    return await doctor_service.get_doctor_by_id(session, UUID(doctor_id))
+    return await doctor_service.get_doctor_by_id(session, doctor_id)
 
 
 @router.post("/doctors/slots")
@@ -73,9 +74,8 @@ async def add_slots(
 
 @router.get("/doctors/{doctor_id}/slots")
 async def get_doctor_slots(
-    doctor_id: str,
+    doctor_id: UUID,
     date: str | None = Query(None),
     session: AsyncSession = Depends(get_session),
 ):
-    from uuid import UUID
-    return await doctor_service.get_slots(session, UUID(doctor_id), date)
+    return await doctor_service.get_slots(session, doctor_id, date)

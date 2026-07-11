@@ -23,22 +23,22 @@ async def list_consultations(
         return await consultation_service.list_for_patient(session, current_user["id"], page=page, size=size)
     elif role == "doctor":
         return await consultation_service.list_for_doctor(session, current_user["id"], page=page, size=size)
-    return []
+    return {"items": [], "total": 0, "page": page, "size": size, "total_pages": 0}
 
 
 @router.get("/{consultation_id}")
 async def get_consultation(
-    consultation_id: str,
+    consultation_id: UUID,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    return await consultation_service.get_by_id(session, UUID(consultation_id))
+    return await consultation_service.get_by_id(session, consultation_id)
 
 
 @router.post("/{consultation_id}/start")
 async def start_consultation(
     request: Request,
-    consultation_id: str,
+    consultation_id: UUID,
     body: StartConsultationRequest = StartConsultationRequest(),
     current_user: dict = Depends(require_role("doctor")),
     session: AsyncSession = Depends(get_session),
@@ -46,7 +46,7 @@ async def start_consultation(
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
     return await consultation_service.start_consultation(
-        session, UUID(consultation_id), current_user["id"], body.notes,
+        session, consultation_id, current_user["id"], body.notes,
         ip_address=ip_address, user_agent=user_agent,
     )
 
@@ -54,7 +54,7 @@ async def start_consultation(
 @router.post("/{consultation_id}/complete")
 async def complete_consultation(
     request: Request,
-    consultation_id: str,
+    consultation_id: UUID,
     body: CompleteConsultationRequest = CompleteConsultationRequest(),
     current_user: dict = Depends(require_role("doctor")),
     session: AsyncSession = Depends(get_session),
@@ -62,6 +62,6 @@ async def complete_consultation(
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
     return await consultation_service.complete_consultation(
-        session, UUID(consultation_id), current_user["id"], body.notes,
+        session, consultation_id, current_user["id"], body.notes,
         ip_address=ip_address, user_agent=user_agent,
     )

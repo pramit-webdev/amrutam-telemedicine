@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.common.exceptions import NotFoundException
+from app.common.exceptions import BadRequestException, ConflictException, NotFoundException
 from app.common.pagination import PaginatedResponse, PaginationParams
 from app.modules.audit.service import audit_service
 from app.modules.doctors.models import Doctor
@@ -77,6 +77,17 @@ class DoctorService:
         if not doctor:
             raise NotFoundException("Doctor profile not found")
 
+        for slot_data in slots_data:
+            overlapping = await slot_repository.find_overlapping(
+                session, doctor.id, slot_data["start_time"], slot_data["end_time"]
+            )
+            if overlapping:
+                msg = (
+                    f"Slot overlaps with existing slot: "
+                    f"{overlapping[0].start_time.isoformat()} - {overlapping[0].end_time.isoformat()}"
+                )
+                raise ConflictException(msg)
+
         slots_db = await slot_repository.create_batch(session, doctor.id, slots_data)
         serialized_slots = [
             {"start_time": s["start_time"].isoformat(), "end_time": s["end_time"].isoformat()}
@@ -103,7 +114,13 @@ class DoctorService:
     async def get_slots(
         self, session: AsyncSession, doctor_id: UUID, date_str: str | None = None
     ) -> list[dict]:
-        date = datetime.fromisoformat(date_str).date() if date_str else datetime.now(UTC).date()
+        if date_str:
+            try:
+                date = datetime.fromisoformat(date_str).date()
+            except ValueError:
+                raise BadRequestException(f"Invalid date format: {date_str}. Use ISO format") from None
+        else:
+            date = datetime.now(UTC).date()
 
         slots = await slot_repository.get_available_by_doctor_and_date(
             session, doctor_id, date

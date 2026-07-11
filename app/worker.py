@@ -2,11 +2,11 @@ import os
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from arq.connections import RedisSettings
 from sqlalchemy import select
 
 from app.core.database import async_session_factory
 from app.modules.consultations.models import Consultation, ConsultationStatus
-from app.modules.doctors.models import AvailabilitySlot
 
 
 async def expire_pending_consultations(ctx: dict) -> dict:
@@ -16,17 +16,13 @@ async def expire_pending_consultations(ctx: dict) -> dict:
             select(Consultation).where(
                 Consultation.status == ConsultationStatus.PENDING_PAYMENT,
                 Consultation.created_at < cutoff,
-            )
+            ).with_for_update(skip_locked=True)
         )
         expired = list(result.scalars().all())
         for consultation in expired:
             consultation.status = ConsultationStatus.CANCELLED
-            slot_result = await session.execute(
-                select(AvailabilitySlot).where(AvailabilitySlot.id == consultation.slot_id)
-            )
-            slot = slot_result.scalar_one_or_none()
-            if slot:
-                slot.is_booked = False
+            if consultation.slot:
+                consultation.slot.is_booked = False
         await session.commit()
     return {"expired_count": len(expired)}
 
@@ -64,7 +60,7 @@ async def aggregate_analytics(ctx: dict) -> dict:
 
 class WorkerSettings:
     functions = [expire_pending_consultations, send_reminder, aggregate_analytics]
-    redis_settings = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    redis_settings = RedisSettings.from_dsn(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
     poll_delay = 10
     max_tasks = 10
     keep_result_seconds = 3600

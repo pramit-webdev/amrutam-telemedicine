@@ -24,7 +24,7 @@ class ConsultationService:
     async def list_for_patient(
         self, session: AsyncSession, patient_id: UUID,
         page: int = 1, size: int = 20,
-    ) -> list[dict]:
+    ) -> dict:
         pagination = PaginationParams(page, size)
         count_result = await session.execute(
             select(func.count()).where(Consultation.patient_id == patient_id)
@@ -40,7 +40,7 @@ class ConsultationService:
     async def list_for_doctor(
         self, session: AsyncSession, user_id: UUID,
         page: int = 1, size: int = 20,
-    ) -> list[dict]:
+    ) -> dict:
         doctor = await doctor_repository.get_by_user_id(session, user_id)
         if not doctor:
             raise NotFoundException("Doctor profile not found")

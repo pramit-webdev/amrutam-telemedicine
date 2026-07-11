@@ -137,15 +137,17 @@ See [docs/architecture.md](docs/architecture.md) for detailed architecture docum
 
 ## Deployment
 
-### Render (Free Tier)
+### Render
 
 1. Push code to GitHub
 2. Create a new **Web Service** on Render, connect your repo
-3. Set build command: `pip install uv && uv sync`
-4. Set start command: `uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-5. Add environment variables from `.env.example`
-6. Create a **Neon** PostgreSQL database and copy the connection string to `DATABASE_URL`
-7. Deploy
+3. Set **Runtime** to `Python 3`
+4. Set **Build Command**: `pip install uv && uv sync --no-dev`
+5. Set **Start Command**: `uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+6. Add a **PostgreSQL** database (Render PostgreSQL or external) and set `DATABASE_URL`
+7. Add required environment variables from `.env.example` (at minimum `JWT_SECRET_KEY`)
+8. Deploy
+9. Run migrations: `uv run alembic upgrade head` (via Render Shell or as a one-off job)
 
 ### Docker
 

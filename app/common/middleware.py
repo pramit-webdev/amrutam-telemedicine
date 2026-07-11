@@ -17,6 +17,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         structlog.contextvars.bind_contextvars(request_id=request_id)
         try:
             response: Response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
             duration = perf_counter() - start
 
             logger.info(
@@ -26,8 +27,6 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 status_code=response.status_code,
                 duration_ms=round(duration * 1000, 2),
             )
+            return response
         finally:
             structlog.contextvars.unbind_contextvars("request_id")
-
-        response.headers["X-Request-ID"] = request_id
-        return response

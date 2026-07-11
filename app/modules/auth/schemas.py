@@ -31,10 +31,5 @@ class MFAVerifyRequest(BaseModel):
     token: str = Field(min_length=6, max_length=6)
 
 
-class MFAVerifyResponse(BaseModel):
-    verified: bool
-    backup_codes: list[str] | None = None
-
-
 class RefreshRequest(BaseModel):
     refresh_token: str

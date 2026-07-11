@@ -32,6 +32,7 @@ class AuditService:
         session.add(entry)
         await session.flush()
         return entry
+
     async def get_logs(
         self, session: AsyncSession,
         entity_type: str | None = None,

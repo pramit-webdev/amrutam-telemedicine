@@ -2,6 +2,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.common.exceptions import ConflictException, NotFoundException
 from app.modules.audit.service import audit_service
@@ -17,6 +18,19 @@ class BookingService:
         idempotency_key: str, symptoms: str | None = None,
         ip_address: str | None = None, user_agent: str | None = None,
     ) -> dict:
+        result = await session.execute(
+            select(Consultation).where(Consultation.idempotency_key == idempotency_key)
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            return {
+                "consultation_id": existing.id,
+                "status": existing.status,
+                "doctor_id": existing.doctor_id,
+                "patient_id": existing.patient_id,
+                "slot_id": existing.slot_id,
+            }
+
         doctor = await doctor_repository.get_by_id(session, doctor_id)
         if not doctor:
             raise NotFoundException("Doctor not found")
@@ -24,13 +38,15 @@ class BookingService:
         slot = await session.execute(
             select(AvailabilitySlot).where(
                 AvailabilitySlot.id == slot_id,
-                AvailabilitySlot.doctor_id == doctor_id,
                 ~AvailabilitySlot.is_booked,
             ).with_for_update()
         )
         slot = slot.scalar_one_or_none()
         if not slot:
             raise ConflictException("Slot is not available or already booked")
+
+        if slot.doctor_id != doctor_id:
+            raise ConflictException("Slot does not belong to the specified doctor")
 
         consultation = Consultation(
             patient_id=patient_id,
@@ -68,7 +84,9 @@ class BookingService:
         ip_address: str | None = None, user_agent: str | None = None,
     ) -> dict:
         result = await session.execute(
-            select(Consultation).where(Consultation.id == consultation_id)
+            select(Consultation).options(
+                selectinload(Consultation.slot)
+            ).where(Consultation.id == consultation_id)
         )
         consultation = result.scalar_one_or_none()
         if not consultation:

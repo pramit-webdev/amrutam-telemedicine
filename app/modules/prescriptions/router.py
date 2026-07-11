@@ -24,10 +24,10 @@ async def create_prescription(
 
 @router.get("/consultation/{consultation_id}")
 async def list_prescriptions(
-    consultation_id: str,
+    consultation_id: UUID,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     return await prescription_service.list_for_consultation(
-        session, UUID(consultation_id)
+        session, consultation_id, current_user["id"], current_user["role"],
     )

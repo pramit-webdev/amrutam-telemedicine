@@ -20,14 +20,14 @@ dependencies = [
     "opentelemetry-api>=1.30,<2",
     "opentelemetry-sdk>=1.30,<2",
     "opentelemetry-instrumentation-fastapi>=0.51b,<1",
-    "opentelemetry-instrumentation-sqlalchemy>=0.51b,<1",
-    "prometheus-fastapi-instrumentator>=7.0,<8",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.30,<2",
     "structlog>=25.1,<26",
     "python-multipart>=0.0.20,<1",
     "email-validator>=2.2,<3",
     "slowapi>=0.1.9,<1",
     "limits>=3.14,<4",
     "tenacity>=9.1,<10",
+    "prometheus-client>=0.21,<1",
 ]
 
 [project.optional-dependencies]
@@ -53,3 +53,4 @@ ignore = ["B008"]  # FastAPI Depends() call in argument defaults is intentional
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+markers = ["e2e: marks end-to-end tests (deselect with '-m \"not e2e\"')"]

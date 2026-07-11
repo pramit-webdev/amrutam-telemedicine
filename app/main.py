@@ -21,7 +21,6 @@ from app.modules.consultations.router import router as consultations_router
 from app.modules.doctors.router import router as doctors_router
 from app.modules.payments.router import router as payments_router
 from app.modules.prescriptions.router import router as prescriptions_router
-from app.modules.search.router import router as search_router
 from app.modules.users.router import router as users_router
 from app.monitoring.metrics import setup_metrics
 from app.monitoring.tracing import setup_tracing
@@ -47,11 +46,6 @@ structlog.configure(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.environment == "production":
-        from app.core.base import Base
-        from app.core.database import engine
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
     yield
     await close_redis()
 
@@ -84,7 +78,6 @@ app.include_router(bookings_router)
 app.include_router(consultations_router)
 app.include_router(payments_router)
 app.include_router(prescriptions_router)
-app.include_router(search_router)
 app.include_router(analytics_router)
 app.include_router(audit_router)
 
@@ -111,3 +104,26 @@ async def db_check():
             return {"db": "ok", "result": r.scalar()}
     except Exception as e:
         return {"db": "error", "error": str(e), "type": type(e).__name__}
+
+
+@app.get("/health/full")
+async def health_full():
+    from sqlalchemy import text
+
+    from app.core.cache import get_redis
+    from app.core.database import engine
+
+    status = {"service": "amrutam-telemedicine", "version": "0.1.0"}
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        status["database"] = "ok"
+    except Exception as e:
+        status["database"] = f"error: {e}"
+    try:
+        r = await get_redis()
+        await r.ping()
+        status["redis"] = "ok"
+    except Exception as e:
+        status["redis"] = f"error: {e}"
+    return status

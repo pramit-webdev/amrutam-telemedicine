@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+credentials
+*.md
+tests/
+infrastructure/
+docs/
+.github/
+*.pem
+__pycache__/
+*.pyc
+.venv/

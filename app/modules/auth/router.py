@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,7 +8,6 @@ from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.modules.auth.schemas import (
     LoginRequest,
-    MFAEnrollResponse,
     MFAVerifyRequest,
     RefreshRequest,
     RegisterRequest,
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register")
-@rate_limiter.limit("10/hour")
+@rate_limiter.limit("10/minute")
 async def register(request: Request, body: RegisterRequest, session: AsyncSession = Depends(get_session)):
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
@@ -34,7 +35,7 @@ async def login(request: Request, body: LoginRequest, session: AsyncSession = De
     return await auth_service.login(session, body.email, body.password)
 
 
-@router.post("/mfa/enroll", response_model=MFAEnrollResponse)
+@router.post("/mfa/enroll")
 @rate_limiter.limit("5/minute")
 async def enroll_mfa(
     request: Request,
@@ -51,8 +52,7 @@ async def verify_mfa(
     body: MFAVerifyRequest,
     session: AsyncSession = Depends(get_session),
 ):
-    import uuid
-    return await auth_service.verify_mfa(session, uuid.UUID(body.user_id), body.token)
+    return await auth_service.verify_mfa(session, UUID(body.user_id), body.token)
 
 
 @router.post("/refresh")

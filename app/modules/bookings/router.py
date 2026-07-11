@@ -35,7 +35,7 @@ async def book_slot(
 @router.post("/{consultation_id}/cancel")
 async def cancel_booking(
     request: Request,
-    consultation_id: str,
+    consultation_id: UUID,
     body: CancelBookingRequest = CancelBookingRequest(),
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
@@ -44,7 +44,7 @@ async def cancel_booking(
     user_agent = request.headers.get("user-agent")
     return await booking_service.cancel_booking(
         session,
-        consultation_id=UUID(consultation_id),
+        consultation_id=consultation_id,
         user_id=current_user["id"],
         role=current_user["role"],
         reason=body.reason,

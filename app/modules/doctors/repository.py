@@ -77,6 +77,18 @@ doctor_repository = DoctorRepository()
 
 
 class AvailabilitySlotRepository:
+    async def find_overlapping(
+        self, session: AsyncSession, doctor_id: UUID, start_time: datetime, end_time: datetime
+    ) -> list[AvailabilitySlot]:
+        result = await session.execute(
+            select(AvailabilitySlot).where(
+                AvailabilitySlot.doctor_id == doctor_id,
+                AvailabilitySlot.start_time < end_time,
+                AvailabilitySlot.end_time > start_time,
+            )
+        )
+        return list(result.scalars().all())
+
     async def get_by_id(self, session: AsyncSession, slot_id: UUID) -> AvailabilitySlot | None:
         result = await session.execute(
             select(AvailabilitySlot).where(AvailabilitySlot.id == slot_id)

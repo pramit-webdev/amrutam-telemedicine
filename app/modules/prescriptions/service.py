@@ -41,8 +41,21 @@ class PrescriptionService:
         return self._to_dict(prescription)
 
     async def list_for_consultation(
-        self, session: AsyncSession, consultation_id: UUID,
+        self, session: AsyncSession, consultation_id: UUID, user_id: UUID, role: str,
     ) -> list[dict]:
+        result = await session.execute(
+            select(Consultation).where(Consultation.id == consultation_id)
+        )
+        consultation = result.scalar_one_or_none()
+        if not consultation:
+            raise NotFoundException("Consultation not found")
+        if role == "patient" and consultation.patient_id != user_id:
+            raise NotFoundException("Consultation not found")
+        if role == "doctor":
+            doctor = await doctor_repository.get_by_user_id(session, user_id)
+            if not doctor or consultation.doctor_id != doctor.id:
+                raise NotFoundException("Consultation not found")
+
         result = await session.execute(
             select(Prescription).where(
                 Prescription.consultation_id == consultation_id

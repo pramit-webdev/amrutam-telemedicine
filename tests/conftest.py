@@ -2,6 +2,7 @@ import os
 
 os.environ.setdefault("ENABLE_METRICS", "false")
 os.environ.setdefault("ENVIRONMENT", "testing")
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-not-for-production")
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -35,8 +36,9 @@ async def session(engine):
 
 @pytest_asyncio.fixture
 async def client(engine):
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
     async def override_get_session():
-        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with session_factory() as s:
             try:
                 yield s

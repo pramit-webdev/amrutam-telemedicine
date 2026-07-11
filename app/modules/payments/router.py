@@ -36,7 +36,7 @@ async def process_payment(
 @router.post("/{payment_id}/refund")
 async def refund_payment(
     request: Request,
-    payment_id: str,
+    payment_id: UUID,
     body: RefundRequest = RefundRequest(),
     current_user: dict = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_session),
@@ -44,6 +44,6 @@ async def refund_payment(
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
     return await payment_service.refund_payment(
-        session, UUID(payment_id), body.reason,
+        session, payment_id, body.reason,
         ip_address=ip_address, user_agent=user_agent,
     )

@@ -15,12 +15,6 @@ class PaymentRepository:
         result = await session.execute(select(Payment).where(Payment.id == payment_id))
         return result.scalar_one_or_none()
 
-    async def get_by_consultation(self, session: AsyncSession, consultation_id: UUID) -> Payment | None:
-        result = await session.execute(
-            select(Payment).where(Payment.consultation_id == consultation_id)
-        )
-        return result.scalar_one_or_none()
-
     async def get_by_idempotency_key(self, session: AsyncSession, key: str) -> Payment | None:
         result = await session.execute(
             select(Payment).where(Payment.idempotency_key == key)
