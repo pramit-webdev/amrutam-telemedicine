@@ -1,1221 +1,2907 @@
 {
-	"info": {
-		"name": "Amrutam Telemedicine API",
-		"description": "Complete end-to-end workflow collection for the Amrutam Telemedicine backend.\n\n## Workflow\n\n1. Health Checks\n2. Register users (patient, doctor, admin)\n3. Login as each role\n4. Patient: view/update profile\n5. Doctor: create profile & availability slots\n6. Public: search doctors\n7. Patient: book appointment → make payment\n8. Doctor: start & complete consultation\n9. Doctor: create prescription\n10. Patient: view consultations & prescriptions\n11. Admin: analytics & audit logs\n12. Authorization enforcement tests\n\n## Variables\n\nSet `base_url` to your Render deployment URL (e.g. `https://amrutam-telemedicine.onrender.com`) or `http://localhost:8000` for local testing.\n\n> Use **Run Collection** with the workflow order above for a fully automated end-to-end test.",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "opencode"
-	},
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "https://amrutam-telemedicine.onrender.com",
-			"type": "string"
-		},
-		{
-			"key": "patient_token",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "doctor_token",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "admin_token",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "patient_email",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "doctor_email",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "admin_email",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "doctor_id",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "slot_id",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "consultation_id",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "payment_id",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "prescription_id",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": 		"password",
-			"value": "Rajesh@2024",
-			"type": "string"
-		}
-	],
-	"item": [
-		{
-			"name": "1. Health Checks",
-			"description": "Verify the service is alive and the database is connected.",
-			"item": [
-				{
-					"name": "GET /health",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"pm.test(\"Body has status=ok\", () => {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.status).to.eql('ok');",
-									"    pm.expect(json.service).to.eql('amrutam-telemedicine');",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/health",
-							"host": ["{{base_url}}"],
-							"path": ["health"]
-						}
-					}
-				},
-				{
-					"name": "GET /db-check",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"pm.test(\"Database connected\", () => {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.db).to.eql('ok');",
-									"    pm.expect(json.result).to.eql(1);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/db-check",
-							"host": ["{{base_url}}"],
-							"path": ["db-check"]
-						}
-					}
-				},
-				{
-					"name": "GET /health/full",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"pm.test(\"Full health includes database\", () => {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.database).to.eql('ok');",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/health/full",
-							"host": ["{{base_url}}"],
-							"path": ["health", "full"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "2. Register Users",
-			"description": "Register three users with different roles: patient, doctor, and admin.",
-			"item": [
-				{
-					"name": "POST /auth/register — Patient",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200 or 409 (already exists)\", () => {",
-									"    pm.expect(pm.response.code).to.be.oneOf([200, 409]);",
-									"});",
-									"if (pm.response.code === 200) {",
-									"    const json = pm.response.json();",
-									"    pm.collectionVariables.set('patient_email', json.email || pm.variables.get('patient_email'));",
-									"}"
-								]
-							}
-						},
-						{
-							"listen": "prerequest",
-							"script": {
-								"exec": [
-									"const ts = Date.now();",
-									"pm.collectionVariables.set('patient_email', `rajesh.kumar.${ts}@gmail.com`);",
-									"pm.variables.set('patient_email', pm.collectionVariables.get('patient_email'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{patient_email}}\",\n    \"password\": \"{{password}}\",\n    \"role\": \"patient\",\n    \"first_name\": \"Rajesh\",\n    \"last_name\": \"Kumar\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/register",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "register"]
-						}
-					}
-				},
-				{
-					"name": "POST /auth/register — Doctor",
-					"event": [
-						{
-							"listen": "prerequest",
-							"script": {
-								"exec": [
-									"const ts = Date.now();",
-									"pm.collectionVariables.set('doctor_email', `priya.sharma.${ts}@apollohospitals.com`);"
-								]
-							}
-						},
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200 or 409\", () => pm.expect(pm.response.code).to.be.oneOf([200, 409]));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{doctor_email}}\",\n    \"password\": \"{{password}}\",\n    \"role\": \"doctor\",\n    \"first_name\": \"Priya\",\n    \"last_name\": \"Sharma\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/register",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "register"]
-						}
-					}
-				},
-				{
-					"name": "POST /auth/register — Admin",
-					"event": [
-						{
-							"listen": "prerequest",
-							"script": {
-								"exec": [
-									"const ts = Date.now();",
-									"pm.collectionVariables.set('admin_email', `vikram.patel.${ts}@amrutam.in`);"
-								]
-							}
-						},
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200 or 409\", () => pm.expect(pm.response.code).to.be.oneOf([200, 409]));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{admin_email}}\",\n    \"password\": \"{{password}}\",\n    \"role\": \"admin\",\n    \"first_name\": \"Vikram\",\n    \"last_name\": \"Patel\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/register",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "register"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "3. Login",
-			"description": "Login as each role and store JWT tokens in collection variables for subsequent requests.",
-			"item": [
-				{
-					"name": "POST /auth/login — Patient",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Has access_token\", () => pm.expect(json.access_token).to.be.a('string'));",
-									"pm.collectionVariables.set('patient_token', json.access_token);",
-									"pm.test(\"Has refresh_token\", () => pm.expect(json.refresh_token).to.be.a('string'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{patient_email}}\",\n    \"password\": \"{{password}}\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/login",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "login"]
-						}
-					}
-				},
-				{
-					"name": "POST /auth/login — Doctor",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.collectionVariables.set('doctor_token', json.access_token);",
-									"pm.test(\"Tokens received\", () => pm.expect(json.access_token).to.be.a('string'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{doctor_email}}\",\n    \"password\": \"{{password}}\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/login",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "login"]
-						}
-					}
-				},
-				{
-					"name": "POST /auth/login — Admin",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.collectionVariables.set('admin_token', json.access_token);",
-									"pm.test(\"Tokens received\", () => pm.expect(json.access_token).to.be.a('string'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{admin_email}}\",\n    \"password\": \"{{password}}\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/login",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "login"]
-						}
-					}
-				},
-				{
-					"name": "POST /auth/refresh — Invalid Token (expect 401)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 401 for invalid refresh token\", () => pm.response.to.have.status(401));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"refresh_token\": \"invalid-refresh-token-here\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/refresh",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "refresh"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "4. User Profile",
-			"description": "View and update the authenticated patient's profile.",
-			"item": [
-				{
-					"name": "GET /users/me — View Profile",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Has profile fields\", () => {",
-									"    pm.expect(json).to.have.property('id');",
-									"    pm.expect(json).to.have.property('email');",
-									"    pm.expect(json).to.have.property('role');",
-									"    pm.expect(json).to.have.property('profile');",
-									"});",
-									"pm.test(\"Has nested profile object\", () => {",
-									"    pm.expect(json.profile).to.have.property('first_name');",
-									"    pm.expect(json.profile).to.have.property('last_name');",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{patient_token}}" }
-						],
-						"url": {
-							"raw": "{{base_url}}/users/me",
-							"host": ["{{base_url}}"],
-							"path": ["users", "me"]
-						}
-					}
-				},
-				{
-					"name": "PUT /users/me — Update Profile",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Profile updated with first_name\", () => {",
-									"    pm.expect(json.profile.first_name).to.eql('Rajesh');",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "PUT",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" },
-							{ "key": "Authorization", "value": "Bearer {{patient_token}}" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"first_name\": \"Rajesh\",\n    \"gender\": \"male\",\n    \"address\": \"42, Link Road, Andheri West, Mumbai - 400053\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/users/me",
-							"host": ["{{base_url}}"],
-							"path": ["users", "me"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "5. Doctor Profile & Slots",
-			"description": "Create a doctor profile and set availability slots.",
-			"item": [
-				{
-					"name": "POST /doctors/profile",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Has doctor id\", () => pm.expect(json.id).to.be.a('string'));",
-									"pm.collectionVariables.set('doctor_id', json.id);",
-									"pm.test(\"Specialization matches\", () => pm.expect(json.specialization).to.eql('Endocrinology'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" },
-							{ "key": "Authorization", "value": "Bearer {{doctor_token}}" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"specialization\": \"Endocrinology\",\n    \"license_number\": \"MCI-{{$timestamp}}\",\n    \"years_of_experience\": 15,\n    \"consultation_fee\": 1200.0,\n    \"bio\": \"Experienced endocrinologist with 15 years at Apollo Hospitals, specializing in diabetes management and thyroid disorders.\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/doctors/profile",
-							"host": ["{{base_url}}"],
-							"path": ["doctors", "profile"]
-						}
-					}
-				},
-				{
-					"name": "GET /doctors/profile — Verify",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Same doctor returned\", () => pm.expect(json.id).to.eql(pm.collectionVariables.get('doctor_id')));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{doctor_token}}" }
-						],
-						"url": {
-							"raw": "{{base_url}}/doctors/profile",
-							"host": ["{{base_url}}"],
-							"path": ["doctors", "profile"]
-						}
-					}
-				},
-				{
-					"name": "POST /doctors/slots — Create Slots",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Returns array of slots\", () => pm.expect(json).to.be.an('array'));",
-									"pm.test(\"Has at least 1 slot\", () => pm.expect(json.length).to.be.gte(1));",
-									"pm.collectionVariables.set('slot_id', json[0].id);",
-									"pm.test(\"First slot has required fields\", () => {",
-									"    pm.expect(json[0]).to.have.property('id');",
-									"    pm.expect(json[0]).to.have.property('start_time');",
-									"    pm.expect(json[0]).to.have.property('end_time');",
-									"    pm.expect(json[0].is_booked).to.eql(false);",
-									"});"
-								]
-							}
-						},
-						{
-							"listen": "prerequest",
-							"script": {
-								"exec": [
-									"const tomorrow = new Date();",
-									"tomorrow.setDate(tomorrow.getDate() + 1);",
-									"const start1 = new Date(tomorrow); start1.setHours(9, 0, 0, 0);",
-									"const end1 = new Date(start1); end1.setHours(10, 0, 0, 0);",
-									"const start2 = new Date(tomorrow); start2.setHours(11, 0, 0, 0);",
-									"const end2 = new Date(start2); end2.setHours(12, 0, 0, 0);",
-									"pm.variables.set('slot1_start', start1.toISOString());",
-									"pm.variables.set('slot1_end', end1.toISOString());",
-									"pm.variables.set('slot2_start', start2.toISOString());",
-									"pm.variables.set('slot2_end', end2.toISOString());"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" },
-							{ "key": "Authorization", "value": "Bearer {{doctor_token}}" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"slots\": [\n        {\n            \"start_time\": \"{{slot1_start}}\",\n            \"end_time\": \"{{slot1_end}}\"\n        },\n        {\n            \"start_time\": \"{{slot2_start}}\",\n            \"end_time\": \"{{slot2_end}}\"\n        }\n    ]\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/doctors/slots",
-							"host": ["{{base_url}}"],
-							"path": ["doctors", "slots"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "6. Public Search",
-			"description": "Search for doctors publicly (no auth required).",
-			"item": [
-				{
-					"name": "GET /doctors/search",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Returns results\", () => {",
-									"    const items = Array.isArray(json) ? json : json.items || [];",
-									"    pm.expect(items.length).to.be.gte(0);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/doctors/search?specialization=Endocrinology",
-							"host": ["{{base_url}}"],
-							"path": ["doctors", "search"],
-							"query": [
-								{ "key": "specialization", "value": "Endocrinology" },
-								{ "key": "available_only", "value": "true" }
-							]
-						}
-					}
-				},
-				{
-					"name": "GET /doctors/{id} — By ID",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Returns the doctor\", () => {",
-									"    pm.expect(json.id).to.eql(pm.collectionVariables.get('doctor_id'));",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/doctors/{{doctor_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["doctors", "{{doctor_id}}"]
-						}
-					}
-				},
-				{
-					"name": "GET /doctors/{id}/slots",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Returns slots array\", () => pm.expect(json).to.be.an('array'));",
-									"pm.test(\"Slots have required fields\", () => {",
-									"    if (json.length > 0) {",
-									"        pm.expect(json[0]).to.have.property('id');",
-									"        pm.expect(json[0]).to.have.property('start_time');",
-									"        pm.expect(json[0]).to.have.property('is_booked');",
-									"    }",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/doctors/{{doctor_id}}/slots",
-							"host": ["{{base_url}}"],
-							"path": ["doctors", "{{doctor_id}}", "slots"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "7. Book Appointment & Pay",
-			"description": "Patient books an appointment and completes payment. This transitions the consultation from `pending_payment` to `confirmed`.",
-			"item": [
-				{
-					"name": "POST /bookings — Create Booking",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Has consultation_id\", () => pm.expect(json.consultation_id).to.be.a('string'));",
-									"pm.collectionVariables.set('consultation_id', json.consultation_id);",
-									"pm.test(\"Status is pending_payment\", () => pm.expect(json.status).to.eql('pending_payment'));",
-									"pm.test(\"Has slot_id and doctor_id\", () => {",
-									"    pm.expect(json.slot_id).to.be.a('string');",
-									"    pm.expect(json.doctor_id).to.be.a('string');",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" },
-							{ "key": "Authorization", "value": "Bearer {{patient_token}}" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"doctor_id\": \"{{doctor_id}}\",\n    \"slot_id\": \"{{slot_id}}\",\n    \"idempotency_key\": \"booking-{{$timestamp}}\",\n    \"symptoms\": \"Experiencing excessive fatigue, frequent urination (especially at night), blurred vision, and unexplained weight loss of about 5 kg over the past 2 months. Family history of Type 2 Diabetes.\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/bookings",
-							"host": ["{{base_url}}"],
-							"path": ["bookings"]
-						}
-					}
-				},
-				{
-					"name": "POST /payments — Make Payment",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Has payment id\", () => pm.expect(json.id).to.be.a('string'));",
-									"pm.collectionVariables.set('payment_id', json.id);",
-									"pm.test(\"Payment completed\", () => pm.expect(json.status).to.eql('completed'));",
-									"pm.test(\"Amount and currency match\", () => {",
-									"    pm.expect(json.amount).to.eql(1200);",
-									"    pm.expect(json.currency).to.eql('INR');",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" },
-							{ "key": "Authorization", "value": "Bearer {{patient_token}}" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"consultation_id\": \"{{consultation_id}}\",\n    \"amount\": 1200.0,\n    \"currency\": \"INR\",\n    \"payment_method\": \"upi\",\n    \"idempotency_key\": \"payment-{{$timestamp}}\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/payments",
-							"host": ["{{base_url}}"],
-							"path": ["payments"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "8. Consultation Lifecycle",
-			"description": "Doctor starts and completes the consultation. The consultation must be in `confirmed` status (after payment) before it can be started.",
-			"item": [
-				{
-					"name": "GET /consultations/{id} — Check Status",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Consultation is confirmed\", () => {",
-									"    pm.expect(json.status).to.eql('confirmed');",
-									"    pm.expect(json.id).to.eql(pm.collectionVariables.get('consultation_id'));",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{doctor_token}}" }
-						],
-						"url": {
-							"raw": "{{base_url}}/consultations/{{consultation_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["consultations", "{{consultation_id}}"]
-						}
-					}
-				},
-				{
-					"name": "POST /consultations/{id}/start",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Status changed to in_progress\", () => pm.expect(json.status).to.eql('in_progress'));",
-									"pm.test(\"started_at is set\", () => pm.expect(json.started_at).to.be.a('string'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" },
-							{ "key": "Authorization", "value": "Bearer {{doctor_token}}" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"notes\": \"Patient presents with classic signs of metabolic disorder. Reviewing blood reports and family history. Checking HbA1c and fasting glucose levels.\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/consultations/{{consultation_id}}/start",
-							"host": ["{{base_url}}"],
-							"path": ["consultations", "{{consultation_id}}", "start"]
-						}
-					}
-				},
-				{
-					"name": "POST /consultations/{id}/complete",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Status changed to completed\", () => pm.expect(json.status).to.eql('completed'));",
-									"pm.test(\"ended_at is set\", () => pm.expect(json.ended_at).to.be.a('string'));",
-									"pm.test(\"Notes are present\", () => pm.expect(json.notes).to.be.a('string'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" },
-							{ "key": "Authorization", "value": "Bearer {{doctor_token}}" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"notes\": \"Patient diagnosed with Type 2 Diabetes Mellitus (ICD-10: E11.9). HbA1c at 8.2%. Prescribed Metformin along with dietary modifications and exercise regimen. Follow-up scheduled in 4 weeks.\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/consultations/{{consultation_id}}/complete",
-							"host": ["{{base_url}}"],
-							"path": ["consultations", "{{consultation_id}}", "complete"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "9. Prescriptions",
-			"description": "Doctor creates a prescription for the completed consultation.",
-			"item": [
-				{
-					"name": "POST /prescriptions — Create",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"pm.test(\"Has prescription id\", () => pm.expect(json.id).to.be.a('string'));",
-									"pm.collectionVariables.set('prescription_id', json.id);",
-									"pm.test(\"Fields match\", () => {",
-									"    pm.expect(json.medication_name).to.eql('Metformin');",
-									"    pm.expect(json.dosage).to.eql('500mg');",
-									"    pm.expect(json.frequency).to.eql('Twice daily (after meals)');",
-									"});",
-									"pm.test(\"Links to consultation\", () => {",
-									"    pm.expect(json.consultation_id).to.eql(pm.collectionVariables.get('consultation_id'));",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" },
-							{ "key": "Authorization", "value": "Bearer {{doctor_token}}" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"consultation_id\": \"{{consultation_id}}\",\n    \"medication_name\": \"Metformin\",\n    \"dosage\": \"500mg\",\n    \"frequency\": \"Twice daily (after meals)\",\n    \"duration\": \"30 days\",\n    \"notes\": \"Take after breakfast and dinner. Monitor fasting blood sugar weekly. Avoid alcohol. Follow up after 4 weeks for HbA1c recheck.\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/prescriptions",
-							"host": ["{{base_url}}"],
-							"path": ["prescriptions"]
-						}
-					}
-				},
-				{
-					"name": "GET /prescriptions/consultation/{id} — Verify",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"const items = Array.isArray(json) ? json : json.items || [];",
-									"pm.test(\"Has prescriptions\", () => pm.expect(items.length).to.be.gte(1));",
-									"pm.test(\"Prescription matches\", () => {",
-									"    const found = items.find(p => p.id === pm.collectionVariables.get('prescription_id'));",
-									"    pm.expect(found).to.not.be.undefined;",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{patient_token}}" }
-						],
-						"url": {
-							"raw": "{{base_url}}/prescriptions/consultation/{{consultation_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["prescriptions", "consultation", "{{consultation_id}}"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "10. Consultations Listing",
-			"description": "List consultations as patient and doctor to verify role-based filtering.",
-			"item": [
-				{
-					"name": "GET /consultations — Patient",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"const items = Array.isArray(json) ? json : json.items || [];",
-									"pm.test(\"Patient sees their consultations\", () => pm.expect(items.length).to.be.gte(1));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{patient_token}}" }
-						],
-						"url": {
-							"raw": "{{base_url}}/consultations",
-							"host": ["{{base_url}}"],
-							"path": ["consultations"]
-						}
-					}
-				},
-				{
-					"name": "GET /consultations — Doctor",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"const items = Array.isArray(json) ? json : json.items || [];",
-									"pm.test(\"Doctor sees their consultations\", () => pm.expect(items.length).to.be.gte(1));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{doctor_token}}" }
-						],
-						"url": {
-							"raw": "{{base_url}}/consultations",
-							"host": ["{{base_url}}"],
-							"path": ["consultations"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "11. Admin: Analytics & Audit",
-			"description": "Admin-only endpoints for analytics and audit logs.",
-			"item": [
-				{
-					"name": "GET /analytics/consultations",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{admin_token}}" }
-						],
-						"url": {
-							"raw": "{{base_url}}/analytics/consultations?days=30",
-							"host": ["{{base_url}}"],
-							"path": ["analytics", "consultations"],
-							"query": [{ "key": "days", "value": "30" }]
-						}
-					}
-				},
-				{
-					"name": "GET /analytics/revenue",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{admin_token}}" }
-						],
-						"url": {
-							"raw": "{{base_url}}/analytics/revenue?days=30",
-							"host": ["{{base_url}}"],
-							"path": ["analytics", "revenue"],
-							"query": [{ "key": "days", "value": "30" }]
-						}
-					}
-				},
-				{
-					"name": "GET /analytics/top-doctors",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{admin_token}}" }
-						],
-						"url": {
-							"raw": "{{base_url}}/analytics/top-doctors?days=30&limit=5",
-							"host": ["{{base_url}}"],
-							"path": ["analytics", "top-doctors"],
-							"query": [
-								{ "key": "days", "value": "30" },
-								{ "key": "limit", "value": "5" }
-							]
-						}
-					}
-				},
-				{
-					"name": "GET /audit-logs",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-									"const json = pm.response.json();",
-									"const items = Array.isArray(json) ? json : json.items || [];",
-									"pm.test(\"Has audit log entries\", () => pm.expect(items.length).to.be.gte(0));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{admin_token}}" }
-						],
-						"url": {
-							"raw": "{{base_url}}/audit-logs?page=1&size=10",
-							"host": ["{{base_url}}"],
-							"path": ["audit-logs"],
-							"query": [
-								{ "key": "page", "value": "1" },
-								{ "key": "size", "value": "10" }
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "12. Authorization Enforcement",
-			"description": "Verify that role-based access control is enforced.",
-			"item": [
-				{
-					"name": "Patient tries to create doctor profile (expect 403)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 403 Forbidden\", () => pm.response.to.have.status(403));",
-									"pm.test(\"Error details\", () => {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.detail).to.be.a('string');",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" },
-							{ "key": "Authorization", "value": "Bearer {{patient_token}}" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"specialization\": \"Test\",\n    \"license_number\": \"X\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/doctors/profile",
-							"host": ["{{base_url}}"],
-							"path": ["doctors", "profile"]
-						}
-					}
-				},
-				{
-					"name": "Patient tries analytics (expect 403)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 403 Forbidden\", () => pm.response.to.have.status(403));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{patient_token}}" }
-						],
-						"url": {
-							"raw": "{{base_url}}/analytics/consultations",
-							"host": ["{{base_url}}"],
-							"path": ["analytics", "consultations"]
-						}
-					}
-				},
-				{
-					"name": "No auth token (expect 401)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status 401 Unauthorized\", () => pm.response.to.have.status(401));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/users/me",
-							"host": ["{{base_url}}"],
-							"path": ["users", "me"]
-						}
-					}
-				}
-			]
-		}
-	]
+  "info": {
+    "_exporter_id": "opencode",
+    "description": "Production-grade end-to-end test collection for the Amrutam Telemedicine backend.\n\n## Coverage (67 requests, 170+ assertions)\n\n1. **Health** \u2014 service liveness, DB, full check\n2. **Registration** \u2014 patient, doctor, admin, duplicates, validation errors\n3. **Authentication** \u2014 login, token refresh, invalid credentials, malformed tokens\n4. **MFA** \u2014 enroll, verify\n5. **Profile** \u2014 view, update all fields\n6. **Doctors** \u2014 create, update, slots, date filtering, overlapping slot rejection\n7. **Search** \u2014 specialization, rating, fee, text, pagination, doctor by ID\n8. **Booking** \u2014 create, idempotent retry, cancel with reason\n9. **Payments** \u2014 process, refund\n10. **Consultations** \u2014 status check, start, complete, verify persistence\n11. **Prescriptions** \u2014 create, multi-prescription, list by consultation\n12. **Admin** \u2014 analytics (consultations, revenue, top doctors), audit logs with filters\n13. **Authorization** \u2014 RBAC (patient/doctor/admin), no-auth, malformed token\n14. **Edge Cases** \u2014 invalid UUIDs, nonexistent entities, missing fields, validation errors",
+    "name": "Amrutam Telemedicine \u2014 Full Production Suite",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "type": "string",
+      "value": "https://amrutam-telemedicine.onrender.com"
+    },
+    {
+      "key": "password",
+      "type": "string",
+      "value": "Rajesh@2024"
+    },
+    {
+      "key": "patient_email",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "doctor_email",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "admin_email",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "patient_token",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "doctor_token",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "admin_token",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "patient_refresh",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "doctor_refresh",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "admin_refresh",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "patient_id",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "doctor_id",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "slot_id",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "second_slot_id",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "consultation_id",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "second_consultation_id",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "payment_id",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "prescription_id",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "mfa_secret",
+      "type": "string",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health Checks",
+      "description": "Verify the service is alive.",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"status=ok\", () => pm.expect(pm.response.json().status).to.eql('ok'));",
+                  "pm.test(\"service=amrutam-telemedicine\", () => pm.expect(pm.response.json().service).to.eql('amrutam-telemedicine'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /db-check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/db-check",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "db-check"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"db=ok\", () => pm.expect(pm.response.json().db).to.eql('ok'));",
+                  "pm.test(\"result=1\", () => pm.expect(pm.response.json().result).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /health/full",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/full",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "full"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"database=ok\", () => pm.expect(pm.response.json().database).to.eql('ok'));",
+                  "pm.test(\"version present\", () => pm.expect(pm.response.json().version).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. User Registration",
+      "description": "Register users with different roles. Includes duplicate and validation error tests.",
+      "item": [
+        {
+          "name": "Register \u2014 Rajesh Kumar (Patient)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{patient_email}}\",\n    \"password\": \"{{password}}\",\n    \"role\": \"patient\",\n    \"first_name\": \"Rajesh\",\n    \"last_name\": \"Kumar\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set('patient_email', `rajesh.kumar.${ts}@gmail.com`);",
+                  "pm.variables.set('patient_email', pm.collectionVariables.get('patient_email'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 (or 409 if rerun)\", () => pm.expect(pm.response.code).to.be.oneOf([200, 409]));",
+                  "const json = pm.response.json();",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Returns user ID\", () => pm.expect(json.id).to.be.a('string'));",
+                  "    pm.test(\"Role = patient\", () => pm.expect(json.role).to.eql('patient'));",
+                  "    pm.collectionVariables.set('patient_id', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register \u2014 Dr. Priya Sharma (Doctor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{doctor_email}}\",\n    \"password\": \"{{password}}\",\n    \"role\": \"doctor\",\n    \"first_name\": \"Priya\",\n    \"last_name\": \"Sharma\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set('doctor_email', `priya.sharma.${ts}@apollohospitals.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Role = doctor\", () => pm.expect(json.role).to.eql('doctor'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register \u2014 Vikram Patel (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{admin_email}}\",\n    \"password\": \"{{password}}\",\n    \"role\": \"admin\",\n    \"first_name\": \"Vikram\",\n    \"last_name\": \"Patel\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set('admin_email', `vikram.patel.${ts}@amrutam.in`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Role = admin\", () => pm.expect(json.role).to.eql('admin'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register \u2014 Duplicate patient email (expect 409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{patient_email}}\",\n    \"password\": \"{{password}}\",\n    \"role\": \"patient\",\n    \"first_name\": \"Dup\",\n    \"last_name\": \"User\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Duplicate error\", () => pm.expect(pm.response.json().detail).to.include('Email already registered'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register \u2014 Short password (expect 422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"short.pwd@test.com\",\n    \"password\": \"Abc1\",\n    \"role\": \"patient\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Validation error\", () => pm.expect(pm.response.json().detail[0].msg).to.include('at least'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register \u2014 Invalid role (expect 422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"invalid.role@test.com\",\n    \"password\": \"ValidPass@123\",\n    \"role\": \"superadmin\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Invalid role error\", () => pm.expect(pm.response.json().detail[0].msg).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Authentication",
+      "description": "Login as each role, token refresh, and invalid credential tests.",
+      "item": [
+        {
+          "name": "Login \u2014 Patient",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{patient_email}}\",\n    \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Has access_token\", () => pm.expect(json.access_token).to.be.a('string'));",
+                  "pm.test(\"Has refresh_token\", () => pm.expect(json.refresh_token).to.be.a('string'));",
+                  "pm.test(\"token_type=bearer\", () => pm.expect(json.token_type).to.eql('bearer'));",
+                  "pm.test(\"Has user info\", () => pm.expect(json.user).to.have.property('email'));",
+                  "pm.collectionVariables.set('patient_token', json.access_token);",
+                  "pm.collectionVariables.set('patient_refresh', json.refresh_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login \u2014 Doctor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{doctor_email}}\",\n    \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('doctor_token', json.access_token);",
+                  "pm.collectionVariables.set('doctor_refresh', json.refresh_token);",
+                  "pm.test(\"Doctor token received\", () => pm.expect(json.access_token).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login \u2014 Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{admin_email}}\",\n    \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('admin_token', json.access_token);",
+                  "pm.collectionVariables.set('admin_refresh', json.refresh_token);",
+                  "pm.test(\"Admin token received\", () => pm.expect(json.access_token).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token Refresh \u2014 Valid",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh_token\": \"{{patient_refresh}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"New tokens issued\", () => {",
+                  "    pm.expect(json.access_token).to.be.a('string');",
+                  "    pm.expect(json.refresh_token).to.be.a('string');",
+                  "});",
+                  "pm.test(\"Token rotation works (new differs from old)\", () => pm.expect(json.access_token).to.not.eql(pm.collectionVariables.get('patient_token')));",
+                  "pm.collectionVariables.set('patient_token', json.access_token);",
+                  "pm.collectionVariables.set('patient_refresh', json.refresh_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token Refresh \u2014 Invalid (expect 401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error detail\", () => pm.expect(pm.response.json().detail).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login \u2014 Wrong password (expect 401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{patient_email}}\",\n    \"password\": \"WrongPassword@123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Invalid credentials error\", () => pm.expect(pm.response.json().detail).to.include('Invalid email or password'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Multi-Factor Authentication",
+      "description": "MFA enrollment and login flow verification.",
+      "item": [
+        {
+          "name": "MFA Enroll \u2014 Patient enables TOTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/mfa/enroll",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "mfa",
+                "enroll"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Has TOTP secret\", () => pm.expect(json.secret).to.be.a('string'));",
+                  "pm.test(\"Has provisioning URI\", () => pm.expect(json.uri).to.include('otpauth://totp/Amrutam'));",
+                  "pm.test(\"Has QR code (base64)\", () => pm.expect(json.qr_code).to.be.a('string'));",
+                  "pm.collectionVariables.set('mfa_secret', json.secret);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "MFA Login Flow \u2014 Login returns mfa_required",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{patient_email}}\",\n    \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"mfa_required = true\", () => pm.expect(json.mfa_required).to.eql(true));",
+                  "pm.test(\"Has user_id for MFA\", () => pm.expect(json.user_id).to.be.a('string'));",
+                  "pm.collectionVariables.set('mfa_user_id', json.user_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "MFA Verify (uses dummy token \u2014 real TOTP from authenticator app)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/mfa/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "mfa",
+                "verify"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"user_id\": \"{{patient_id}}\",\n    \"token\": \"123456\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"MFA verified, tokens received\", () => {",
+                  "        pm.expect(json.access_token).to.be.a('string');",
+                  "        pm.expect(json.refresh_token).to.be.a('string');",
+                  "    });",
+                  "    pm.collectionVariables.set('patient_token', json.access_token);",
+                  "} else {",
+                  "    pm.test(\"MFA verify rejects dummy token (expect 401 for fake, 200 for real)\", () => {",
+                  "        pm.expect(pm.response.code).to.eql(401);",
+                  "        pm.expect(json.detail).to.include('Invalid MFA token');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. User Profile",
+      "description": "View and update the patient profile.",
+      "item": [
+        {
+          "name": "GET /users/me \u2014 View profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Has user fields\", () => {",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('email');",
+                  "    pm.expect(json).to.have.property('role');",
+                  "    pm.expect(json.role).to.eql('patient');",
+                  "});",
+                  "pm.test(\"Has nested profile\", () => {",
+                  "    pm.expect(json.profile).to.have.property('first_name');",
+                  "    pm.expect(json.profile.first_name).to.eql('Rajesh');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /users/me \u2014 Update profile (gender, address, avatar)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"first_name\": \"Rajesh\",\n    \"last_name\": \"Kumar\",\n    \"gender\": \"male\",\n    \"date_of_birth\": \"1979-05-15\",\n    \"address\": \"42, Link Road, Andheri West, Mumbai - 400053, Maharashtra\",\n    \"avatar_url\": \"https://randomuser.me/api/portraits/men/44.jpg\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Profile fields updated\", () => {",
+                  "    pm.expect(json.profile.gender).to.eql('male');",
+                  "    pm.expect(json.profile.address).to.include('Mumbai');",
+                  "    pm.expect(json.profile.avatar_url).to.include('randomuser');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /users/me \u2014 Verify updates persisted",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Profile persists across requests\", () => {",
+                  "    pm.expect(json.profile.gender).to.eql('male');",
+                  "    pm.expect(json.profile.address).to.include('Mumbai');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Doctor Management",
+      "description": "Doctor profile CRUD and slot management.",
+      "item": [
+        {
+          "name": "POST /doctors/profile \u2014 Create profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/doctors/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "profile"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"specialization\": \"Endocrinology\",\n    \"license_number\": \"MCI-05-{{$timestamp}}\",\n    \"years_of_experience\": 15,\n    \"consultation_fee\": 1200,\n    \"bio\": \"Senior Endocrinologist at Apollo Hospitals, Chennai.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Has doctor id\", () => pm.expect(json.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('doctor_id', json.id);",
+                  "pm.test(\"Specialization = Endocrinology\", () => pm.expect(json.specialization).to.eql('Endocrinology'));",
+                  "pm.test(\"Fee = 1200\", () => pm.expect(json.consultation_fee).to.eql(1200));",
+                  "pm.test(\"Has doctor name\", () => pm.expect(json.first_name).to.eql('Priya'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /doctors/profile \u2014 Verify created",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/doctors/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "profile"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Same doctor returned\", () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('doctor_id')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /doctors/profile \u2014 Update fee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/doctors/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "profile"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"specialization\": \"Endocrinology\",\n    \"license_number\": \"MCI-UPD-{{$timestamp}}\",\n    \"years_of_experience\": 16,\n    \"consultation_fee\": 1500,\n    \"bio\": \"Updated: Senior Endocrinologist with 16 years experience.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Fee updated to 1500\", () => pm.expect(pm.response.json().consultation_fee).to.eql(1500));",
+                  "pm.test(\"Experience updated\", () => pm.expect(pm.response.json().years_of_experience).to.eql(16));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /doctors/slots \u2014 Create 2 slots (tomorrow)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/doctors/slots",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "slots"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"slots\": [\n        {\n            \"start_time\": \"{{slot1_start}}\",\n            \"end_time\": \"{{slot1_end}}\"\n        },\n        {\n            \"start_time\": \"{{slot2_start}}\",\n            \"end_time\": \"{{slot2_end}}\"\n        }\n    ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const tomorrow = new Date();",
+                  "tomorrow.setDate(tomorrow.getDate() + 1);",
+                  "const s1 = new Date(tomorrow); s1.setHours(9,0,0,0);",
+                  "const e1 = new Date(s1); e1.setHours(10,0,0,0);",
+                  "const s2 = new Date(tomorrow); s2.setHours(14,0,0,0);",
+                  "const e2 = new Date(s2); e2.setHours(15,0,0,0);",
+                  "pm.variables.set('slot1_start', s1.toISOString());",
+                  "pm.variables.set('slot1_end', e1.toISOString());",
+                  "pm.variables.set('slot2_start', s2.toISOString());",
+                  "pm.variables.set('slot2_end', e2.toISOString());",
+                  "pm.collectionVariables.set('slot_date', s1.toISOString().split('T')[0]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"2 slots created\", () => pm.expect(json.length).to.eql(2));",
+                  "pm.collectionVariables.set('slot_id', json[0].id);",
+                  "pm.collectionVariables.set('second_slot_id', json[1].id);",
+                  "pm.test(\"Slots have required fields\", () => {",
+                  "    pm.expect(json[0].id).to.be.a('string');",
+                  "    pm.expect(json[0].is_booked).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /doctors/{id}/slots \u2014 Date filtered",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/doctors/{{doctor_id}}/slots",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctor_id}}",
+                "slots"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "{{slot_date}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Returns array\", () => pm.expect(json).to.be.an('array'));",
+                  "pm.test(\"Contains our slot\", () => {",
+                  "    const ids = json.map(s => s.id);",
+                  "    pm.expect(ids).to.include(pm.collectionVariables.get('slot_id'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /doctors/slots \u2014 Overlapping slot (expect 409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/doctors/slots",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "slots"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"slots\": [\n        {\n            \"start_time\": \"{{slot1_start}}\",\n            \"end_time\": \"{{slot1_end}}\"\n        }\n    ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Overlap error message\", () => pm.expect(pm.response.json().detail).to.include('overlap'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Doctor Search",
+      "description": "Public search endpoints.",
+      "item": [
+        {
+          "name": "Search by specialization",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/doctors/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "specialization",
+                  "value": "Endocrinology"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Has pagination fields\", () => {",
+                  "    pm.expect(json.items).to.be.an('array');",
+                  "    pm.expect(json).to.have.property('total');",
+                  "    pm.expect(json).to.have.property('page');",
+                  "});",
+                  "pm.test(\"Filters by specialization\", () => {",
+                  "    json.items.forEach(d => pm.expect(d.specialization.toLowerCase()).to.include('endocrinology'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search by max fee & min rating",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/doctors/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "max_fee",
+                  "value": "2000"
+                },
+                {
+                  "key": "min_rating",
+                  "value": "3.5"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Filters by fee\", () => {",
+                  "    json.items.forEach(d => pm.expect(d.consultation_fee).to.be.at.most(2000));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search by text query",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/doctors/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "thyroid"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Returns results array\", () => pm.expect(pm.response.json().items).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Paginated search (page=2, size=1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/doctors/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "2"
+                },
+                {
+                  "key": "size",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Page = 2\", () => pm.expect(json.page).to.eql(2));",
+                  "pm.test(\"Size = 1\", () => pm.expect(json.size).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get doctor by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/doctors/{{doctor_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctor_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Returns correct doctor\", () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('doctor_id')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Booking & Payments",
+      "description": "Full booking and payment workflow with idempotency.",
+      "item": [
+        {
+          "name": "Create booking (morning slot)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"doctor_id\": \"{{doctor_id}}\",\n    \"slot_id\": \"{{slot_id}}\",\n    \"idempotency_key\": \"booking-{{$timestamp}}\",\n    \"symptoms\": \"Excessive fatigue, polyuria, polydipsia, blurred vision, weight loss 7kg in 6 weeks.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Has consultation_id\", () => pm.expect(json.consultation_id).to.be.a('string'));",
+                  "pm.collectionVariables.set('consultation_id', json.consultation_id);",
+                  "pm.test(\"Status = pending_payment\", () => pm.expect(json.status).to.eql('pending_payment'));",
+                  "pm.test(\"Has doctor_id and slot_id\", () => {",
+                  "    pm.expect(json.doctor_id).to.be.a('string');",
+                  "    pm.expect(json.slot_id).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create booking (afternoon slot) \u2014 second consultation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"doctor_id\": \"{{doctor_id}}\",\n    \"slot_id\": \"{{second_slot_id}}\",\n    \"idempotency_key\": \"booking-2-{{$timestamp}}\",\n    \"symptoms\": \"Follow-up for diabetes management. HbA1c recheck needed.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Second consultation created\", () => pm.expect(json.consultation_id).to.be.a('string'));",
+                  "pm.collectionVariables.set('second_consultation_id', json.consultation_id);",
+                  "pm.test(\"Different from first\", () => pm.expect(json.consultation_id).to.not.eql(pm.collectionVariables.get('consultation_id')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Make payment (UPI, INR 1200) \u2014 for first consultation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"consultation_id\": \"{{consultation_id}}\",\n    \"amount\": 1200,\n    \"currency\": \"INR\",\n    \"payment_method\": \"upi\",\n    \"idempotency_key\": \"payment-{{$timestamp}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Has payment id\", () => pm.expect(json.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('payment_id', json.id);",
+                  "pm.test(\"Status = completed\", () => pm.expect(json.status).to.eql('completed'));",
+                  "pm.test(\"Amount = 1200\", () => pm.expect(json.amount).to.eql(1200));",
+                  "pm.test(\"Currency = INR\", () => pm.expect(json.currency).to.eql('INR'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel second booking (afternoon slot)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings/{{second_consultation_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{second_consultation_id}}",
+                "cancel"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"reason\": \"Patient has scheduling conflict. Requesting reschedule to next week.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Booking cancelled\", () => pm.expect(pm.response.json().status).to.eql('cancelled'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Consultation Lifecycle",
+      "description": "Doctor starts and completes a consultation. Uses the first (paid) consultation.",
+      "item": [
+        {
+          "name": "GET /consultations/{id} \u2014 Check confirmed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultations/{{consultation_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultations",
+                "{{consultation_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Status = confirmed (payment received)\", () => pm.expect(json.status).to.eql('confirmed'));",
+                  "pm.test(\"Has patient_id and doctor_id\", () => {",
+                  "    pm.expect(json).to.have.property('patient_id');",
+                  "    pm.expect(json).to.have.property('doctor_id');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /consultations/{id}/start",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultations/{{consultation_id}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultations",
+                "{{consultation_id}}",
+                "start"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"notes\": \"HbA1c=8.2%, Fasting Glucose=178 mg/dL. Discussed lifestyle modifications and medication plan.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Status = in_progress\", () => pm.expect(json.status).to.eql('in_progress'));",
+                  "pm.test(\"started_at is set\", () => pm.expect(json.started_at).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /consultations/{id}/complete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultations/{{consultation_id}}/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultations",
+                "{{consultation_id}}",
+                "complete"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"notes\": \"Type 2 Diabetes Mellitus (E11.9). HbA1c 8.2%. Prescribed Metformin 500mg BD. Diet and exercise advised. Follow-up 4 weeks.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Status = completed\", () => pm.expect(json.status).to.eql('completed'));",
+                  "pm.test(\"ended_at is set\", () => pm.expect(json.ended_at).to.be.a('string'));",
+                  "pm.test(\"Notes present\", () => pm.expect(json.notes).to.include('Type 2 Diabetes'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /consultations/{id} \u2014 Verify persisted",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultations/{{consultation_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultations",
+                "{{consultation_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Status = completed\", () => pm.expect(pm.response.json().status).to.eql('completed'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. Prescriptions",
+      "description": "Prescription creation and verification.",
+      "item": [
+        {
+          "name": "POST /prescriptions \u2014 Metformin 500mg",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/prescriptions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "prescriptions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"consultation_id\": \"{{consultation_id}}\",\n    \"medication_name\": \"Metformin\",\n    \"dosage\": \"500mg\",\n    \"frequency\": \"Twice daily (after meals)\",\n    \"duration\": \"30 days\",\n    \"notes\": \"Take with meals. Monitor blood glucose weekly.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Has prescription id\", () => pm.expect(json.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('prescription_id', json.id);",
+                  "pm.test(\"Medication = Metformin\", () => pm.expect(json.medication_name).to.eql('Metformin'));",
+                  "pm.test(\"Links to consultation\", () => pm.expect(json.consultation_id).to.eql(pm.collectionVariables.get('consultation_id')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /prescriptions \u2014 Atorvastatin 10mg",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/prescriptions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "prescriptions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"consultation_id\": \"{{consultation_id}}\",\n    \"medication_name\": \"Atorvastatin\",\n    \"dosage\": \"10mg\",\n    \"frequency\": \"Once daily (bedtime)\",\n    \"duration\": \"90 days\",\n    \"notes\": \"LDL 160 mg/dL. Monitor LFT in 3 months.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Second Rx created\", () => pm.expect(pm.response.json().medication_name).to.include('Atorvastatin'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /prescriptions/consultation/{id} \u2014 List prescriptions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/prescriptions/consultation/{{consultation_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "prescriptions",
+                "consultation",
+                "{{consultation_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const items = Array.isArray(pm.response.json()) ? pm.response.json() : pm.response.json().items || [];",
+                  "pm.test(\"Multiple prescriptions\", () => pm.expect(items.length).to.be.gte(2));",
+                  "pm.test(\"Metformin found\", () => {",
+                  "    const found = items.find(p => p.id === pm.collectionVariables.get('prescription_id'));",
+                  "    pm.expect(found).to.not.be.undefined;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11. Consultations Listing",
+      "description": "Role-based consultation listing with pagination.",
+      "item": [
+        {
+          "name": "GET /consultations \u2014 Patient view",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultations"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Has pagination\", () => {",
+                  "    pm.expect(json).to.have.property('items');",
+                  "    pm.expect(json).to.have.property('total');",
+                  "    pm.expect(json).to.have.property('page');",
+                  "});",
+                  "pm.test(\"Patient sees consultations\", () => pm.expect(json.items.length).to.be.gte(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /consultations \u2014 Doctor view",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultations"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Doctor sees consultations\", () => pm.expect(json.items.length).to.be.gte(1));",
+                  "pm.test(\"Filtered by doctor\", () => {",
+                  "    json.items.forEach(c => pm.expect(c.doctor_id).to.eql(pm.collectionVariables.get('doctor_id')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /consultations \u2014 Admin view (all)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultations"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Admin sees consultations\", () => pm.expect(json.items.length).to.be.gte(0));",
+                  "pm.test(\"Items have full details\", () => {",
+                  "    if (json.items.length > 0) {",
+                  "        pm.expect(json.items[0]).to.have.property('status');",
+                  "        pm.expect(json.items[0]).to.have.property('patient_id');",
+                  "        pm.expect(json.items[0]).to.have.property('created_at');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "12. Admin Operations",
+      "description": "Analytics, audit logs, and refund.",
+      "item": [
+        {
+          "name": "GET /analytics/consultations (30 days)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/consultations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "consultations"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Has consultation stats\", () => {",
+                  "    pm.expect(json).to.have.property('total_consultations');",
+                  "    pm.expect(json).to.have.property('period_days');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /analytics/revenue (30 days)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/revenue",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "revenue"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Has revenue data\", () => pm.expect(pm.response.json()).to.have.property('total_revenue'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /analytics/top-doctors (limit=5)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/top-doctors",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "top-doctors"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Is an array\", () => pm.expect(json).to.be.an('array'));",
+                  "if (json.length > 0) {",
+                  "    pm.test(\"Entries have doctor info\", () => {",
+                  "        pm.expect(json[0]).to.have.property('doctor_id');",
+                  "        pm.expect(json[0]).to.have.property('specialization');",
+                  "        pm.expect(json[0]).to.have.property('consultation_count');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /audit-logs (filtered by entity_type=user)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audit-logs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "key": "entity_type",
+                  "value": "user"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const items = Array.isArray(pm.response.json()) ? pm.response.json() : pm.response.json().items || [];",
+                  "pm.test(\"Has audit entries\", () => pm.expect(items.length).to.be.gte(1));",
+                  "pm.test(\"Entries have required fields\", () => {",
+                  "    pm.expect(items[0]).to.have.property('action');",
+                  "    pm.expect(items[0]).to.have.property('entity_type');",
+                  "    pm.expect(items[0]).to.have.property('created_at');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /audit-logs (filtered by action=created)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audit-logs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "created"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const items = Array.isArray(pm.response.json()) ? pm.response.json() : pm.response.json().items || [];",
+                  "pm.test(\"Filtered by action\", () => {",
+                  "    items.forEach(e => pm.expect(e.action).to.eql('created'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /payments/{id}/refund \u2014 Admin refund",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments/{{payment_id}}/refund",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments",
+                "{{payment_id}}",
+                "refund"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"reason\": \"Patient requested cancellation within 24 hours. Full refund.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Refund processed\", () => pm.expect(pm.response.json().status).to.eql('refunded'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "13. Authorization & Security",
+      "description": "RBAC enforcement and token validation.",
+      "item": [
+        {
+          "name": "Patient creates doctor profile (expect 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/doctors/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "profile"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"specialization\": \"Test\",\n    \"license_number\": \"LIC-TEST\",\n    \"years_of_experience\": 1,\n    \"consultation_fee\": 500\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Insufficient permissions\", () => pm.expect(pm.response.json().detail).to.include('permissions'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Patient views analytics (expect 403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/analytics/consultations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "consultations"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "No auth token (expect 401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Not authenticated\", () => pm.expect(pm.response.json().detail).to.eql('Not authenticated'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Malformed JWT (expect 401)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.dummy"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Doctor creates booking (expect 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"doctor_id\": \"{{doctor_id}}\",\n    \"slot_id\": \"{{slot_id}}\",\n    \"idempotency_key\": \"booking-forbid-{{$timestamp}}\",\n    \"symptoms\": \"Test\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin creates booking (expect 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"doctor_id\": \"{{doctor_id}}\",\n    \"slot_id\": \"{{slot_id}}\",\n    \"idempotency_key\": \"booking-admin-{{$timestamp}}\",\n    \"symptoms\": \"Test\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Patient views audit logs (expect 403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audit-logs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "audit-logs"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Doctor refunds payment (expect 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments/{{payment_id}}/refund",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments",
+                "{{payment_id}}",
+                "refund"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"reason\": \"Unauthorized refund attempt\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "14. Negative Edge Cases",
+      "description": "Invalid IDs, nonexistent resources, validation errors.",
+      "item": [
+        {
+          "name": "GET /doctors/{invalid_uuid} (expect 404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/doctors/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Not found\", () => pm.expect(pm.response.json().detail).to.include('not found'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /consultations/{invalid_uuid} (expect 404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultations/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultations",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Not found\", () => pm.expect(pm.response.json().detail).to.include('not found'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register \u2014 Missing password (expect 422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"missing@test.com\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Validation errors returned\", () => pm.expect(pm.response.json().detail).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register \u2014 Invalid email format (expect 422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"not-an-email\",\n    \"password\": \"ValidPass@123\",\n    \"role\": \"patient\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Invalid email\", () => pm.expect(pm.response.json().detail[0].msg).to.include('email'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search \u2014 Invalid page param (expect 422)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/doctors/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doctors",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "-1"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Booking \u2014 Invalid slot UUID (expect 409 or 404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"doctor_id\": \"{{doctor_id}}\",\n    \"slot_id\": \"00000000-0000-0000-0000-000000000000\",\n    \"idempotency_key\": \"booking-bad-{{$timestamp}}\",\n    \"symptoms\": \"Invalid slot test\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Returns error status\", () => pm.expect(pm.response.code).to.be.oneOf([404, 409]));",
+                  "pm.test(\"Error detail present\", () => pm.expect(pm.response.json().detail).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment \u2014 Negative amount (expect 422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"consultation_id\": \"{{consultation_id}}\",\n    \"amount\": -100,\n    \"currency\": \"INR\",\n    \"payment_method\": \"upi\",\n    \"idempotency_key\": \"payment-neg-{{$timestamp}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
